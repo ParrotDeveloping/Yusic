@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yusic</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Left Sidebar -->
+    <aside class="sidebar" aria-label="Yan menü">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="32" height="32">
+            <defs>
+              <linearGradient id="yusicBg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#3b1f75"/>
+                <stop offset="100%" stop-color="#7c3aed"/>
+              </linearGradient>
+              <linearGradient id="yusicAcc" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ddd6fe"/>
+                <stop offset="100%" stop-color="#38bdf8"/>
+              </linearGradient>
+            </defs>
+            <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#yusicBg)"/>
+            <path d="M18 18 L32 34 L46 18 M32 34 L32 48" fill="none" stroke="url(#yusicAcc)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="13" y="37" width="4" height="10" rx="2" fill="#a78bfa"/>
+            <rect x="47" y="37" width="4" height="10" rx="2" fill="#38bdf8"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">Yusic</span>
+          <span class="brand-sub">Müzik &amp; İndirici</span>
+        </div>
+      </div>
+
+      <nav class="nav-group" aria-label="Ana görünümler">
+        <button type="button" class="nav-item is-active" id="nav-all-music" data-view="library">
+          <span class="nav-icon" aria-hidden="true">♪</span>
+          <span class="nav-label">Tüm Müzikler</span>
+          <span class="nav-badge" id="badge-all-count">0</span>
+        </button>
+        <button type="button" class="nav-item" id="nav-downloader" data-view="downloader">
+          <span class="nav-icon" aria-hidden="true">⇩</span>
+          <span class="nav-label">İndirici</span>
+          <span class="nav-badge nav-badge--accent" id="badge-dl-active" hidden>0</span>
+        </button>
+      </nav>
+
+      <div class="folder-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-open-folder" title="Programın içindeki muzik klasörünü aç">
+          Müzik Klasörünü Aç
+        </button>
+        <div class="folder-actions-row">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-rescan" title="Müzik klasörünü yeniden tara">
+            Yenile
+          </button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-pick-files" title="Bilgisayardan ses dosyası aktar">
+            Dosya Ekle
+          </button>
+        </div>
+      </div>
+
+      <div class="playlists-header">
+        <span class="section-heading">Playlistler</span>
+        <button type="button" class="icon-btn" id="btn-new-playlist" title="Yeni Playlist Oluştur" aria-label="Yeni Playlist Oluştur">
+          +
+        </button>
+      </div>
+
+      <div class="playlists-list scroller" id="sidebar-playlists" role="list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="sidebar-footer">
+        <span class="app-version-label" id="app-version-label">Yusic v1.0.0</span>
+        <button type="button" class="btn btn-ghost btn-xs update-check-btn" id="btn-check-updates" title="GitHub üzerinden güncellemeleri kontrol et">
+          <span>Güncelleme Kontrol Et</span>
+          <span class="update-dot" id="update-dot" hidden aria-hidden="true"></span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-area" id="main-area">
+      <!-- In-App Update Banner -->
+      <div id="update-banner" class="update-banner" role="region" aria-label="Uygulama güncellemesi" hidden>
+        <div class="update-banner-main">
+          <span class="update-banner-badge" id="update-banner-badge">Yeni Sürüm</span>
+          <div class="update-banner-text">
+            <strong id="update-banner-title">Yusic güncellemesi mevcut</strong>
+            <span id="update-banner-sub"></span>
+          </div>
+        </div>
+        <progress id="update-banner-progress" class="yusic-progress" max="100" value="0" aria-label="Güncelleme indirme ilerlemesi" hidden></progress>
+        <div class="update-banner-actions">
+          <button type="button" class="btn btn-primary btn-xs" id="btn-banner-action">Güncellemeyi İndir</button>
+          <button type="button" class="btn btn-secondary btn-xs" id="btn-banner-details">Detaylar</button>
+          <button type="button" class="icon-btn" id="btn-banner-dismiss" aria-label="Güncelleme çubuğunu gizle">×</button>
+        </div>
+      </div>
+
+      <!-- Library / Playlist View -->
+      <section class="view view-library is-active" id="view-library" aria-label="Müzik Kütüphanesi">
+        <header class="view-header">
+          <div class="view-header-info">
+            <span class="view-eyebrow" id="view-eyebrow">KÜTÜPHANE</span>
+            <h1 class="view-title" id="view-title">Tüm Müzikler</h1>
+            <p class="view-meta" id="view-meta">0 şarkı • 0 dk</p>
+          </div>
+          <div class="view-header-actions">
+            <button type="button" class="btn btn-primary" id="btn-play-all">
+              ▶ Tümünü Çal
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-shuffle-all">
+              🔀 Karışık Çal
+            </button>
+          </div>
+        </header>
+
+        <div class="toolbar">
+          <div class="search-wrap">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input type="search" id="search-input" class="input-search" placeholder="Şarkı, sanatçı veya albüm ara..." aria-label="Müziklerde ara">
+          </div>
+          <div class="sort-wrap" id="sort-wrap">
+            <label for="sort-select" class="sr-only">Sıralama</label>
+            <select id="sort-select" class="select-control">
+              <option value="title">İsim (A-Z)</option>
+              <option value="artist">Sanatçı (A-Z)</option>
+              <option value="recent">Eklenme (Yeni)</option>
+              <option value="duration">Süre (Uzun)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="track-list-wrap scroller" id="track-list-wrap">
+          <div class="track-table-head" id="track-table-head">
+            <span class="col-idx">#</span>
+            <span class="col-title">Şarkı</span>
+            <span class="col-album">Albüm / Klasör</span>
+            <span class="col-dur">Süre</span>
+            <span class="col-actions">İşlemler</span>
+          </div>
+          <div class="track-list" id="track-list" role="list">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <div class="empty-state" id="library-empty" hidden>
+            <div class="empty-icon" aria-hidden="true">🎵</div>
+            <h2 class="empty-title" id="empty-title">Müzik klasörün henüz boş</h2>
+            <p class="empty-desc" id="empty-desc">
+              Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify/YouTube'dan indirebilirsin.
+            </p>
+            <code class="path-pill" id="empty-muzik-path"></code>
+            <div class="empty-buttons">
+              <button type="button" class="btn btn-primary" id="btn-empty-open-folder">Müzik Klasörünü Aç</button>
+              <button type="button" class="btn btn-secondary" id="btn-empty-go-dl">Spotify / YouTube'dan İndir</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Downloader View -->
+      <section class="view view-downloader scroller" id="view-downloader" aria-label="Spotify ve YouTube İndirici" hidden>
+        <header class="view-header">
+          <div class="view-header-info">
+            <span class="view-eyebrow">İNDİRİCİ</span>
+            <h1 class="view-title">Spotify &amp; YouTube MP3 İndirici</h1>
+            <p class="view-meta">Tek şarkı veya tüm playlist linkini yapıştır; şarkılar otomatik olarak muzik klasörüne MP3 olarak kaydedilsin.</p>
+          </div>
+        </header>
+
+        <div class="dl-card">
+          <form id="dl-form" class="dl-form">
+            <div class="dl-input-row">
+              <label for="dl-url-input" class="sr-only">Spotify veya YouTube bağlantısı</label>
+              <input
+                type="url"
+                id="dl-url-input"
+                class="dl-url-input"
+                placeholder="https://open.spotify.com/... veya https://www.youtube.com/..."
+                autocomplete="off"
+                spellcheck="false"
+              >
+              <button type="submit" class="btn btn-primary btn-lg" id="btn-dl-start">İndir</button>
+            </div>
+
+            <div class="dl-detect-row">
+              <span class="detect-pill" id="dl-detect-pill">Link yapıştırıldığında platform otomatik algılanır</span>
+            </div>
+
+            <div class="dl-options">
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-auto-playlist" checked>
+                <span>Playlist indirirken Yusic içinde otomatik playlist oluştur</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-yt-list" checked>
+                <span>YouTube video linkinde liste (&amp;list=) varsa tüm playlisti indir</span>
+              </label>
+            </div>
+          </form>
+
+          <div class="dl-tools-warning" id="dl-tools-warning" hidden>
+            <strong>Uyarı:</strong> İndirme araçları (yt-dlp veya ffmpeg) eksik görünüyor.
+          </div>
+        </div>
+
+        <div class="dl-queue-header">
+          <h2 class="section-heading">İndirme Kuyruğu</h2>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-dl-clear">Tamamlananları Temizle</button>
+        </div>
+
+        <div class="dl-jobs" id="dl-jobs">
+          <div class="empty-state empty-state--compact" id="dl-empty">
+            <p class="empty-desc">Henüz aktif veya tamamlanmış bir indirme yok. Spotify veya YouTube linki yapıştırıp <strong>İndir</strong>'e bas.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Now-Playing Bar -->
+    <footer class="player-bar" aria-label="Müzik oynatıcı kontrolleri">
+      <div class="player-left">
+        <div class="now-cover" id="now-cover">
+          <span class="now-cover-placeholder" aria-hidden="true">♪</span>
+          <img id="now-cover-img" alt="" hidden>
+        </div>
+        <div class="now-info">
+          <div class="now-title" id="now-title">Şarkı seçilmedi</div>
+          <div class="now-artist" id="now-artist">Çalmak için listeden bir şarkıya tıkla</div>
+        </div>
+        <canvas class="visualizer-canvas" id="visualizer-canvas" width="76" height="28" aria-hidden="true"></canvas>
+      </div>
+
+      <div class="player-center">
+        <div class="transport-buttons">
+          <button type="button" class="ctrl-btn" id="btn-shuffle" aria-pressed="false" title="Karışık Çal (S)" aria-label="Karışık Çal">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+              <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+              <line x1="4" y1="4" x2="9" y2="9"/>
+            </svg>
+          </button>
+
+          <button type="button" class="ctrl-btn" id="btn-prev" title="Önceki Şarkı" aria-label="Önceki Şarkı">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true">
+              <path d="M6 5h2v14H6zm3.5 7 9.5 6.5V5.5z"/>
+            </svg>
+          </button>
+
+          <button type="button" class="ctrl-btn ctrl-btn--play" id="btn-play-pause" title="Oynat / Duraklat (Space)" aria-label="Oynat">
+            <svg id="icon-play" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+              <path d="M8 5.5v13l11-6.5z"/>
+            </svg>
+            <svg id="icon-pause" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true" hidden>
+              <path d="M6.5 5h4v14h-4zm7 0h4v14h-4z"/>
+            </svg>
+          </button>
+
+          <button type="button" class="ctrl-btn" id="btn-next" title="Sonraki Şarkı" aria-label="Sonraki Şarkı">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true">
+              <path d="M16 5h2v14h-2zM5 18.5 14.5 12 5 5.5z"/>
+            </svg>
+          </button>
+
+          <button type="button" class="ctrl-btn ctrl-btn--repeat" id="btn-repeat" data-repeat="off" title="Döngü: Kapalı (R)" aria-label="Döngü Modu: Kapalı">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+              <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+            <span class="repeat-one-badge" id="repeat-one-badge" hidden>1</span>
+          </button>
+        </div>
+
+        <div class="seek-row">
+          <span class="time-label" id="time-current">0:00</span>
+          <label for="seek-slider" class="sr-only">Şarkı konumu</label>
+          <input type="range" id="seek-slider" class="yusic-slider yusic-slider--seek" min="0" max="100" step="0.1" value="0" aria-valuetext="0:00">
+          <span class="time-label" id="time-total">0:00</span>
+        </div>
+      </div>
+
+      <div class="player-right">
+        <button
+          type="button"
+          class="speed-trigger"
+          id="btn-speed-panel"
+          popovertarget="speed-popover"
+          title="Çalma Hızı ve Ses Tonu Ayarları"
+        >
+          <span class="speed-trigger-rate" id="speed-trigger-rate">1.00x</span>
+          <span class="speed-trigger-pitch" id="speed-trigger-pitch">Sabit Ton</span>
+        </button>
+
+        <div class="volume-wrap">
+          <button type="button" class="ctrl-btn ctrl-btn--sm" id="btn-mute" title="Sesi Kapat / Aç (M)" aria-label="Sesi Kapat">
+            <svg id="icon-vol-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <svg id="icon-vol-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+            </svg>
+          </button>
+          <label for="volume-slider" class="sr-only">Ses düzeyi</label>
+          <input type="range" id="volume-slider" class="yusic-slider yusic-slider--vol" min="0" max="1" step="0.01" value="0.85" aria-valuetext="%85">
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Speed & Pitch Popover -->
+  <div id="speed-popover" popover="auto" class="speed-popover" aria-labelledby="speed-popover-title">
+    <div class="speed-popover-head">
+      <div>
+        <h2 id="speed-popover-title" class="speed-popover-title">Hız ve Ses Tonu</h2>
+        <p class="speed-popover-sub">Anlık olarak aktif şarkıya uygulanır</p>
+      </div>
+      <button type="button" class="btn btn-ghost btn-xs" id="btn-speed-reset">1.0x Sıfırla</button>
+    </div>
+
+    <div class="speed-slider-block">
+      <div class="speed-readout-row">
+        <label for="speed-slider" class="speed-label">Çalma Hızı</label>
+        <span class="speed-value-badge" id="speed-value-label">1.00x</span>
+      </div>
+      <input type="range" id="speed-slider" class="yusic-slider" min="0.25" max="2.5" step="0.05" value="1" aria-valuetext="1.00x">
+      <div class="speed-presets" id="speed-presets">
+        <button type="button" class="preset-chip" data-speed="0.5">0.5x</button>
+        <button type="button" class="preset-chip" data-speed="0.75">0.75x</button>
+        <button type="button" class="preset-chip" data-speed="0.85">0.85x</button>
+        <button type="button" class="preset-chip is-selected" data-speed="1">1.0x</button>
+        <button type="button" class="preset-chip" data-speed="1.15">1.15x</button>
+        <button type="button" class="preset-chip" data-speed="1.25">1.25x</button>
+        <button type="button" class="preset-chip" data-speed="1.5">1.5x</button>
+        <button type="button" class="preset-chip" data-speed="2">2.0x</button>
+      </div>
+    </div>
+
+    <fieldset class="pitch-fieldset">
+      <legend class="speed-label">Hızlanınca / Yavaşlayınca Ses Tonu</legend>
+      <div class="pitch-segmented">
+        <label class="pitch-option">
+          <input type="radio" name="pitch-mode" id="pitch-preserve" value="preserve" checked>
+          <span class="pitch-card">
+            <strong>Sesi Koru</strong>
+            <small>Ton sabit kalır</small>
+          </span>
+        </label>
+        <label class="pitch-option">
+          <input type="radio" name="pitch-mode" id="pitch-change" value="change">
+          <span class="pitch-card">
+            <strong>Sesi Değiştir</strong>
+            <small>Nightcore / Slowed</small>
+          </span>
+        </label>
+      </div>
+      <p class="pitch-hint" id="pitch-hint">
+        Şarkı hızlansa veya yavaşlasa bile ses tonu orijinal kalır.
+      </p>
+    </fieldset>
+  </div>
+
+  <!-- Drag & Drop Overlay -->
+  <div class="drop-overlay" id="drop-overlay" hidden>
+    <div class="drop-overlay-card">
+      <div class="drop-overlay-icon" aria-hidden="true">⇩</div>
+      <h2>Ses Dosyalarını Buraya Bırak</h2>
+      <p>Dosyalar programın içindeki <code>muzik</code> klasörüne kopyalanacak ve otomatik eklenecek.</p>
+    </div>
+  </div>
+
+  <!-- Modal Dialogs (native <dialog closedby="any">) -->
+  <dialog id="playlist-dialog" class="yusic-dialog" closedby="any" aria-labelledby="playlist-dialog-title">
+    <form method="dialog" id="playlist-dialog-form" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="playlist-dialog-title">Yeni Playlist</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body">
+        <label for="playlist-name-input" class="field-label">Playlist Adı</label>
+        <input type="text" id="playlist-name-input" class="text-input" placeholder="Örn: Gece Sürüşü" maxlength="80" autofocus required>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="cancel" class="btn btn-secondary" formnovalidate>Vazgeç</button>
+        <button type="submit" value="confirm" class="btn btn-primary" id="playlist-dialog-submit">Oluştur</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="add-to-playlist-dialog" class="yusic-dialog" closedby="any" aria-labelledby="add-pl-title">
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="add-pl-title">Playlist'e Ekle</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-subtitle" id="add-pl-track-name"></p>
+        <div class="add-pl-list scroller" id="add-pl-list"></div>
+        <div class="add-pl-quick-create">
+          <label for="add-pl-new-name" class="sr-only">Yeni playlist adı</label>
+          <input type="text" id="add-pl-new-name" class="text-input" placeholder="Veya yeni playlist adı yaz..." maxlength="80">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-add-pl-quick">Oluştur &amp; Ekle</button>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="cancel" class="btn btn-secondary" autofocus>Kapat</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="yusic-dialog" closedby="any" aria-labelledby="confirm-dialog-title">
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="confirm-dialog-title">Onayla</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body">
+        <p id="confirm-dialog-message"></p>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="cancel" class="btn btn-secondary" autofocus>Vazgeç</button>
+        <button type="submit" value="confirm" class="btn btn-danger" id="confirm-dialog-ok">Sil</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="update-dialog" class="yusic-dialog yusic-dialog--wide" closedby="any" aria-labelledby="update-dialog-title">
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="update-dialog-title">Yusic Güncelleme Merkezi</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="update-version-grid">
+          <div class="update-ver-box">
+            <span class="field-label">Mevcut Sürüm</span>
+            <strong id="update-cur-ver">v1.0.0</strong>
+          </div>
+          <div class="update-ver-box">
+            <span class="field-label">GitHub Son Sürüm</span>
+            <strong id="update-latest-ver">—</strong>
+          </div>
+        </div>
+        <p class="update-status-msg" id="update-status-msg">Güncelleme durumu kontrol ediliyor...</p>
+        <div class="update-progress-wrap" id="update-dialog-progress-wrap" hidden>
+          <progress id="update-dialog-progress" class="yusic-progress" max="100" value="0" aria-label="Güncelleme indirme durumu"></progress>
+          <span class="update-progress-pct" id="update-dialog-pct">%0</span>
+        </div>
+        <div class="update-notes-wrap" id="update-notes-wrap" hidden>
+          <span class="field-label">Sürüm Notları</span>
+          <pre class="update-notes scroller" id="update-notes"></pre>
+        </div>
+      </div>
+      <div class="dialog-footer update-dialog-footer">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-update-recheck">Tekrar Kontrol Et</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-update-github">GitHub Sayfası</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-update-action" hidden>Güncellemeyi İndir</button>
+        <button type="submit" value="cancel" class="btn btn-secondary btn-sm" autofocus>Kapat</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Toast Notifications Container -->
+  <div id="toast-region" class="toast-region" role="region" aria-label="Bildirimler"></div>
+  <div id="aria-live-region" class="sr-only" aria-live="polite"></div>
+
+  <!-- Hidden HTMLAudioElement -->
+  <audio id="audio-player" crossorigin="anonymous" preload="metadata"></audio>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

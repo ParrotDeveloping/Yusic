@@ -1,0 +1,77 @@
+{
+  "name": "yusic",
+  "version": "1.0.0",
+  "description": "Yusic - Masaüstü Müzik Çalar ve İndirici",
+  "type": "module",
+  "main": "src/main/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ParrotDeveloping/Yusic.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.js",
+    "smoke": "electron . --smoke-test",
+    "icon": "node scripts/generate-icon.js",
+    "prepare:bin": "node scripts/prepare-binaries.js",
+    "dist": "node scripts/generate-icon.js && node scripts/prepare-binaries.js && electron-builder --win nsis --publish never"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "electron-updater": "^6.8.11",
+    "music-metadata": "^11.0.0"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0"
+  },
+  "build": {
+    "appId": "com.parrotdeveloping.yusic",
+    "productName": "Yusic",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build-bin",
+        "to": "bin",
+        "filter": [
+          "*.exe"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "verifyUpdateCodeSignature": false,
+      "artifactName": "Yusic-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Yusic",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ParrotDeveloping",
+        "repo": "Yusic",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

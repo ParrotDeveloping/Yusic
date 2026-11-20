@@ -1,0 +1,10 @@
+node_modules/
+.venv/
+dist/
+build-bin/
+data/
+muzik/
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
