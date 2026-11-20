@@ -5,7 +5,8 @@ import { EventEmitter } from 'node:events';
 import {
   UpdateManager,
   compareSemver,
-  formatReleaseNotes
+  formatReleaseNotes,
+  isNewerVersion
 } from '../src/main/updater.js';
 import {
   ROOT_DIR,
@@ -71,6 +72,33 @@ test('UpdateManager checks GitHub API in dev mode cleanly', async () => {
   });
   const st2 = await upToDateMgr.checkForUpdates();
   assert.equal(st2.status, 'not-available');
+  assert.equal(st2.downloadUrl, null);
+  const blockedDl = await upToDateMgr.downloadUpdate();
+  assert.equal(blockedDl.skipped, true);
+  assert.equal(isNewerVersion('v1.0.1', '1.0.1'), false);
+  assert.equal(isNewerVersion('1.0.2', '1.0.1'), true);
+});
+
+test('UpdateManager ignores same or older version even if autoUpdater fires update-available', async () => {
+  class SameVersionAutoUpdater extends EventEmitter {
+    setFeedURL() {}
+    async checkForUpdates() {
+      this.emit('checking-for-update');
+      this.emit('update-available', { version: '1.0.1' });
+    }
+    async downloadUpdate() {
+      throw new Error('Should not download same version');
+    }
+  }
+  const mgr = new UpdateManager({
+    currentVersion: '1.0.1',
+    isPackaged: true,
+    autoUpdaterImpl: new SameVersionAutoUpdater()
+  });
+  const st = await mgr.checkForUpdates();
+  assert.equal(st.status, 'not-available');
+  const dl = await mgr.downloadUpdate();
+  assert.equal(dl.skipped, true);
 });
 
 test('UpdateManager handles full packaged autoUpdater lifecycle', async () => {

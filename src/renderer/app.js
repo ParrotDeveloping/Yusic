@@ -2,16 +2,21 @@ import {
   clampSpeed,
   createShuffledQueue,
   getNextIndex,
-  getPrevIndex
+  getPrevIndex,
+  resolveEffectiveSpeed
 } from '../main/playbackLogic.js';
+import { compareSemver } from '../main/versionUtils.js';
 
 const audio = document.getElementById('audio-player');
 
 const els = {
   navAllMusic: document.getElementById('nav-all-music'),
+  navSpotify: document.getElementById('nav-spotify'),
   navDownloader: document.getElementById('nav-downloader'),
   badgeAllCount: document.getElementById('badge-all-count'),
+  badgeSpotifyStatus: document.getElementById('badge-spotify-status'),
   badgeDlActive: document.getElementById('badge-dl-active'),
+
   btnOpenFolder: document.getElementById('btn-open-folder'),
   btnRescan: document.getElementById('btn-rescan'),
   btnPickFiles: document.getElementById('btn-pick-files'),
@@ -31,13 +36,25 @@ const els = {
   btnBannerDismiss: document.getElementById('btn-banner-dismiss'),
 
   viewLibrary: document.getElementById('view-library'),
+  viewSpotify: document.getElementById('view-spotify'),
   viewDownloader: document.getElementById('view-downloader'),
+
+  libHero: document.getElementById('lib-hero'),
+  libHeroCoverArt: document.getElementById('lib-hero-cover-art'),
+  btnHeroPickCover: document.getElementById('btn-hero-pick-cover'),
   viewEyebrow: document.getElementById('view-eyebrow'),
   viewTitle: document.getElementById('view-title'),
+  viewDesc: document.getElementById('view-desc'),
   viewMeta: document.getElementById('view-meta'),
+  playlistSpeedPill: document.getElementById('playlist-speed-pill'),
   btnPlayAll: document.getElementById('btn-play-all'),
   btnShuffleAll: document.getElementById('btn-shuffle-all'),
+  btnPlaylistSpeed: document.getElementById('btn-playlist-speed'),
+  btnPlaylistEdit: document.getElementById('btn-playlist-edit'),
   searchInput: document.getElementById('search-input'),
+  btnViewList: document.getElementById('btn-view-list'),
+  btnViewCompact: document.getElementById('btn-view-compact'),
+  btnViewGrid: document.getElementById('btn-view-grid'),
   sortWrap: document.getElementById('sort-wrap'),
   sortSelect: document.getElementById('sort-select'),
   trackTableHead: document.getElementById('track-table-head'),
@@ -47,8 +64,49 @@ const els = {
   emptyDesc: document.getElementById('empty-desc'),
   emptyMuzikPath: document.getElementById('empty-muzik-path'),
   btnEmptyOpenFolder: document.getElementById('btn-empty-open-folder'),
-  btnEmptyGoDl: document.getElementById('btn-empty-go-dl'),
+  btnEmptyGoSpotify: document.getElementById('btn-empty-go-spotify'),
 
+  // Spotify View
+  spPublicForm: document.getElementById('sp-public-form'),
+  spPublicUrl: document.getElementById('sp-public-url'),
+  spUserBar: document.getElementById('sp-user-bar'),
+  spUserAvatar: document.getElementById('sp-user-avatar'),
+  spUserName: document.getElementById('sp-user-name'),
+  btnSpRefresh: document.getElementById('btn-sp-refresh'),
+  btnSpLogout: document.getElementById('btn-sp-logout'),
+  spConnectCard: document.getElementById('sp-connect-card'),
+  btnSpDashboard: document.getElementById('btn-sp-dashboard'),
+  spRedirectUriCode: document.getElementById('sp-redirect-uri-code'),
+  btnSpCopyRedirect: document.getElementById('btn-sp-copy-redirect'),
+  spLoginForm: document.getElementById('sp-login-form'),
+  spClientIdInput: document.getElementById('sp-client-id-input'),
+  btnSpLogin: document.getElementById('btn-sp-login'),
+  spSubnav: document.getElementById('sp-subnav'),
+  spSearchForm: document.getElementById('sp-search-form'),
+  spSearchInput: document.getElementById('sp-search-input'),
+  spPlaylistsGrid: document.getElementById('sp-playlists-grid'),
+  spCollectionArea: document.getElementById('sp-collection-area'),
+  spHero: document.getElementById('sp-hero'),
+  spHeroCoverArt: document.getElementById('sp-hero-cover-art'),
+  btnSpHeroPickCover: document.getElementById('btn-sp-hero-pick-cover'),
+  spHeroEyebrow: document.getElementById('sp-hero-eyebrow'),
+  spHeroTitle: document.getElementById('sp-hero-title'),
+  spHeroDesc: document.getElementById('sp-hero-desc'),
+  spHeroMeta: document.getElementById('sp-hero-meta'),
+  spSpeedPill: document.getElementById('sp-speed-pill'),
+  btnSpPlayAll: document.getElementById('btn-sp-play-all'),
+  btnSpShuffleAll: document.getElementById('btn-sp-shuffle-all'),
+  btnSpListSpeed: document.getElementById('btn-sp-list-speed'),
+  spFilterInput: document.getElementById('sp-filter-input'),
+  btnSpViewList: document.getElementById('btn-sp-view-list'),
+  btnSpViewCompact: document.getElementById('btn-sp-view-compact'),
+  btnSpViewGrid: document.getElementById('btn-sp-view-grid'),
+  spTableHead: document.getElementById('sp-table-head'),
+  spTrackList: document.getElementById('sp-track-list'),
+  spLoadMoreWrap: document.getElementById('sp-load-more-wrap'),
+  btnSpLoadMore: document.getElementById('btn-sp-load-more'),
+
+  // Downloader
   dlForm: document.getElementById('dl-form'),
   dlUrlInput: document.getElementById('dl-url-input'),
   dlDetectPill: document.getElementById('dl-detect-pill'),
@@ -58,6 +116,7 @@ const els = {
   btnDlClear: document.getElementById('btn-dl-clear'),
   dlJobs: document.getElementById('dl-jobs'),
 
+  // Now Playing
   nowCoverImg: document.getElementById('now-cover-img'),
   nowCoverPlaceholder: document.querySelector('.now-cover-placeholder'),
   nowTitle: document.getElementById('now-title'),
@@ -78,8 +137,10 @@ const els = {
   seekSlider: document.getElementById('seek-slider'),
 
   btnSpeedPanel: document.getElementById('btn-speed-panel'),
+  speedTriggerSource: document.getElementById('speed-trigger-source'),
   speedTriggerRate: document.getElementById('speed-trigger-rate'),
   speedTriggerPitch: document.getElementById('speed-trigger-pitch'),
+  speedPopoverSourceDesc: document.getElementById('speed-popover-source-desc'),
   speedValueLabel: document.getElementById('speed-value-label'),
   speedSlider: document.getElementById('speed-slider'),
   speedPresets: document.getElementById('speed-presets'),
@@ -87,6 +148,9 @@ const els = {
   pitchPreserve: document.getElementById('pitch-preserve'),
   pitchChange: document.getElementById('pitch-change'),
   pitchHint: document.getElementById('pitch-hint'),
+  btnSaveTrackSpeed: document.getElementById('btn-save-track-speed'),
+  btnSaveListSpeed: document.getElementById('btn-save-list-speed'),
+  btnClearActiveOverride: document.getElementById('btn-clear-active-override'),
 
   btnMute: document.getElementById('btn-mute'),
   iconVolOn: document.getElementById('icon-vol-on'),
@@ -99,6 +163,22 @@ const els = {
   playlistDialogTitle: document.getElementById('playlist-dialog-title'),
   playlistNameInput: document.getElementById('playlist-name-input'),
   playlistDialogSubmit: document.getElementById('playlist-dialog-submit'),
+
+  playlistEditDialog: document.getElementById('playlist-edit-dialog'),
+  plEditCoverPreview: document.getElementById('pl-edit-cover-preview'),
+  btnPlEditPickCover: document.getElementById('btn-pl-edit-pick-cover'),
+  btnPlEditClearCover: document.getElementById('btn-pl-edit-clear-cover'),
+  plEditName: document.getElementById('pl-edit-name'),
+  plEditDesc: document.getElementById('pl-edit-desc'),
+
+  speedOverrideDialog: document.getElementById('speed-override-dialog'),
+  spdOvTitle: document.getElementById('spd-ov-title'),
+  spdOvTarget: document.getElementById('spd-ov-target'),
+  spdOvLabel: document.getElementById('spd-ov-label'),
+  spdOvSlider: document.getElementById('spd-ov-slider'),
+  spdOvPresets: document.getElementById('spd-ov-presets'),
+  ovPitchPreserve: document.getElementById('ov-pitch-preserve'),
+  ovPitchChange: document.getElementById('ov-pitch-change'),
 
   addPlDialog: document.getElementById('add-to-playlist-dialog'),
   addPlTrackName: document.getElementById('add-pl-track-name'),
@@ -130,18 +210,22 @@ const els = {
 
 const state = {
   muzikDir: '',
-  appVersion: '1.0.0',
+  appVersion: '1.0.1',
   isPackaged: false,
   serverUrl: '',
   serverToken: '',
   tracks: [],
   trackMap: new Map(),
+  spotifyTracksCache: new Map(),
   playlists: [],
+  trackSpeedOverrides: {},
+  externalListPrefs: {},
   downloads: [],
   toolsStatus: null,
   updateState: null,
   updateBannerDismissed: false,
   lastNotifiedUpdateStatus: null,
+
   settings: {
     volume: 0.85,
     muted: false,
@@ -150,20 +234,46 @@ const state = {
     shuffle: false,
     repeatMode: 'off',
     autoCreatePlaylistOnDownload: true,
-    downloadYoutubePlaylistOnWatch: true
+    downloadYoutubePlaylistOnWatch: true,
+    libraryViewMode: 'list'
   },
-  viewTab: 'library',
+
+  viewTab: 'library', // 'library' | 'spotify' | 'downloader'
   activePlaylistId: null,
   searchQuery: '',
   sortBy: 'title',
+
+  // Spotify View State
+  spotifyAuth: { connected: false, clientId: '', user: null, redirectUri: '' },
+  spotifySubTab: 'liked', // 'liked' | 'playlists' | 'recent' | 'search' | 'playlist-detail' | 'public'
+  spotifyPlaylists: [],
+  spotifyFilterQuery: '',
+  spotifyCollection: {
+    id: 'spotify:liked',
+    title: 'Beğenilen Şarkılar',
+    eyebrow: 'SPOTIFY BEĞENİLENLER',
+    description: '',
+    coverUrl: '',
+    isLiked: true,
+    spotifyPlaylistId: null,
+    tracks: [],
+    total: 0,
+    hasMore: false,
+    offset: 0,
+    loading: false,
+    truncatedAt100: false
+  },
 
   baseQueueIds: [],
   queueIds: [],
   queueIndex: -1,
   currentTrackId: null,
+  activeQueuePlaylistId: null,
   isSeeking: false,
 
   pendingPlaylistDialog: null,
+  pendingEditPlaylistId: null,
+  pendingSpeedOverrideCtx: null,
   pendingConfirmAction: null,
   pendingTrackForPlaylist: null
 };
@@ -190,13 +300,41 @@ function formatTotalDuration(totalSec) {
   return `${h} sa ${m} dk`;
 }
 
-function audioUrlForTrack(trackId) {
-  return `${state.serverUrl}/audio/${encodeURIComponent(trackId)}?t=${encodeURIComponent(state.serverToken)}`;
+function getAnyTrackById(id) {
+  return state.trackMap.get(id) || state.spotifyTracksCache.get(id) || null;
+}
+
+function rememberSpotifyTracks(tracks = []) {
+  for (const t of tracks) {
+    if (t?.id) state.spotifyTracksCache.set(t.id, t);
+  }
+}
+
+function coverFileUrl(coverFile) {
+  if (!coverFile) return '';
+  return `${state.serverUrl}/cover/${encodeURIComponent(coverFile)}?t=${encodeURIComponent(state.serverToken)}`;
 }
 
 function coverUrlForTrack(track) {
-  if (!track?.coverFile) return '';
-  return `${state.serverUrl}/cover/${encodeURIComponent(track.coverFile)}?t=${encodeURIComponent(state.serverToken)}`;
+  if (!track) return '';
+  if (track.coverFile) return coverFileUrl(track.coverFile);
+  if (track.coverUrl) return track.coverUrl;
+  return '';
+}
+
+function audioUrlForTrack(track) {
+  if (!track) return '';
+  if (track.source === 'spotify') {
+    const q = new URLSearchParams({
+      t: state.serverToken,
+      title: track.title || '',
+      artist: track.artist || '',
+      dur: String(track.durationMs || 0),
+      preview: track.previewUrl || ''
+    });
+    return `${state.serverUrl}/stream/spotify/${encodeURIComponent(track.id)}?${q.toString()}`;
+  }
+  return `${state.serverUrl}/audio/${encodeURIComponent(track.id)}?t=${encodeURIComponent(state.serverToken)}`;
 }
 
 function syncSliderVisual(slider, ariaText = null) {
@@ -231,7 +369,6 @@ function restackToasts() {
 }
 
 function showToast(message, variant = 'info', durationMs = 4200) {
-  // Do not surface background toasts while a modal dialog is open
   if (document.querySelector('dialog:modal')) return;
 
   const toast = document.createElement('div');
@@ -365,6 +502,61 @@ function setupDialogEnhancements() {
     }
   });
 
+  els.playlistEditDialog.addEventListener('close', async () => {
+    const action = els.playlistEditDialog.returnValue;
+    els.playlistEditDialog.returnValue = '';
+    const plId = state.pendingEditPlaylistId;
+    state.pendingEditPlaylistId = null;
+    if (action !== 'confirm' || !plId) return;
+
+    const name = els.plEditName.value.trim();
+    const description = els.plEditDesc.value.trim();
+    await window.yusic.updatePlaylistDetails(plId, { name, description });
+    showToast('Playlist bilgileri güncellendi.', 'success');
+  });
+
+  els.speedOverrideDialog.addEventListener('close', async () => {
+    const action = els.speedOverrideDialog.returnValue;
+    els.speedOverrideDialog.returnValue = '';
+    const ctx = state.pendingSpeedOverrideCtx;
+    state.pendingSpeedOverrideCtx = null;
+    if (!ctx || action === 'cancel' || action === '') return;
+
+    const speed = clampSpeed(els.spdOvSlider.value);
+    const preservePitch = els.ovPitchPreserve.checked;
+    const override = action === 'clear' ? null : { speed, preservePitch };
+
+    if (ctx.kind === 'track') {
+      state.trackSpeedOverrides = await window.yusic.setTrackSpeedOverride(ctx.id, override);
+      showToast(
+        override
+          ? `"${ctx.label}" için ${speed.toFixed(2)}x hız kaydedildi.`
+          : `"${ctx.label}" özel hızı kaldırıldı.`,
+        'success'
+      );
+    } else if (ctx.kind === 'local-playlist') {
+      await window.yusic.updatePlaylistDetails(ctx.id, { speedOverride: override });
+      showToast(
+        override
+          ? `Liste hızı ${speed.toFixed(2)}x olarak kaydedildi.`
+          : 'Liste özel hızı kaldırıldı.',
+        'success'
+      );
+    } else if (ctx.kind === 'external-playlist') {
+      state.externalListPrefs = await window.yusic.updateExternalListPref(ctx.id, {
+        speedOverride: override
+      });
+      showToast(
+        override
+          ? `Liste hızı ${speed.toFixed(2)}x olarak kaydedildi.`
+          : 'Liste özel hızı kaldırıldı.',
+        'success'
+      );
+    }
+
+    renderAll();
+  });
+
   els.confirmDialog.addEventListener('close', async () => {
     const action = els.confirmDialog.returnValue;
     els.confirmDialog.returnValue = '';
@@ -393,6 +585,56 @@ function openPlaylistDialog(mode, { playlistId = null, initialName = '', pending
   els.playlistDialog.showModal();
   els.playlistNameInput.focus();
   els.playlistNameInput.select();
+}
+
+function renderPlaylistEditCoverPreview(pl) {
+  els.plEditCoverPreview.innerHTML = '';
+  if (pl?.coverFile) {
+    const img = document.createElement('img');
+    img.src = coverFileUrl(pl.coverFile);
+    img.alt = '';
+    els.plEditCoverPreview.appendChild(img);
+  } else {
+    els.plEditCoverPreview.textContent = '♪';
+  }
+}
+
+function openPlaylistEditDialog(pl) {
+  if (!pl) return;
+  state.pendingEditPlaylistId = pl.id;
+  els.plEditName.value = pl.name;
+  els.plEditDesc.value = pl.description || '';
+  renderPlaylistEditCoverPreview(pl);
+  els.playlistEditDialog.showModal();
+  els.plEditName.focus();
+}
+
+function syncSpeedOverrideDialogUI(speed, preservePitch) {
+  const s = clampSpeed(speed);
+  els.spdOvSlider.value = String(s);
+  const label = `${s.toFixed(2)}x`;
+  els.spdOvLabel.textContent = label;
+  syncSliderVisual(els.spdOvSlider, label);
+  els.ovPitchPreserve.checked = Boolean(preservePitch);
+  els.ovPitchChange.checked = !preservePitch;
+  for (const chip of els.spdOvPresets.querySelectorAll('.preset-chip')) {
+    chip.classList.toggle('is-selected', Math.abs(Number(chip.dataset.speed) - s) < 0.01);
+  }
+}
+
+function openSpeedOverrideDialog({ kind, id, label, currentOverride }) {
+  state.pendingSpeedOverrideCtx = { kind, id, label };
+  els.spdOvTitle.textContent =
+    kind === 'track' ? 'Şarkıya Özel Hız Ayarı' : 'Listeye Özel Hız Ayarı';
+  els.spdOvTarget.textContent = label;
+
+  const baseSpeed = currentOverride?.speed ?? state.settings.speed ?? 1.0;
+  const basePitch =
+    currentOverride?.preservePitch !== undefined
+      ? currentOverride.preservePitch
+      : state.settings.preservePitch;
+  syncSpeedOverrideDialogUI(baseSpeed, basePitch);
+  els.speedOverrideDialog.showModal();
 }
 
 function openConfirmDialog({ title, message, okLabel = 'Sil', onConfirm }) {
@@ -429,7 +671,7 @@ function renderAddToPlaylistModalList() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'add-pl-item';
-    btn.innerHTML = `<span></span><span class="playlist-count"></span>`;
+    btn.innerHTML = `<span></span><span class="playlist-sub"></span>`;
     btn.firstElementChild.textContent = pl.name;
     btn.lastElementChild.textContent = already ? '✓ Listede' : '+ Ekle';
     btn.addEventListener('click', async () => {
@@ -446,10 +688,32 @@ function renderAddToPlaylistModalList() {
   }
 }
 
-/* ---------------- Speed, Pitch, Volume, Repeat, Shuffle ---------------- */
+/* ---------------- Speed Cascade, Pitch, Volume, Repeat, Shuffle ---------------- */
+function getListSpeedOverride(listId) {
+  if (!listId) return null;
+  const localPl = state.playlists.find((p) => p.id === listId);
+  if (localPl?.speedOverride) return localPl.speedOverride;
+  const extPref = state.externalListPrefs[listId];
+  if (extPref?.speedOverride) return extPref.speedOverride;
+  return null;
+}
+
+function getActiveEffectiveSpeed() {
+  const trackOverride = state.currentTrackId
+    ? state.trackSpeedOverrides[state.currentTrackId] || null
+    : null;
+  const playlistOverride = getListSpeedOverride(state.activeQueuePlaylistId);
+  return resolveEffectiveSpeed({
+    trackOverride,
+    playlistOverride,
+    globalSettings: state.settings
+  });
+}
+
 function applySpeedAndPitch() {
-  const speed = clampSpeed(state.settings.speed);
-  const preserve = Boolean(state.settings.preservePitch);
+  const eff = getActiveEffectiveSpeed();
+  const speed = clampSpeed(eff.speed);
+  const preserve = Boolean(eff.preservePitch);
 
   audio.defaultPlaybackRate = speed;
   audio.playbackRate = speed;
@@ -462,7 +726,25 @@ function applySpeedAndPitch() {
   els.speedValueLabel.textContent = formatted;
   els.speedTriggerRate.textContent = formatted;
   els.speedTriggerPitch.textContent = preserve ? 'Sabit Ton' : 'Ton Değişir';
-  els.btnSpeedPanel.classList.toggle('is-modified', speed !== 1 || !preserve);
+
+  const sourceLabels = {
+    track: 'Şarkı Özel',
+    playlist: 'Liste Özel',
+    global: 'Genel Hız'
+  };
+  els.speedTriggerSource.hidden = eff.source === 'global';
+  els.speedTriggerSource.textContent = eff.source === 'track' ? 'Şarkı' : 'Liste';
+  els.speedPopoverSourceDesc.textContent =
+    eff.source === 'track'
+      ? 'Bu şarkı için kayıtlı özel hız aktif'
+      : eff.source === 'playlist'
+        ? 'Aktif liste için kayıtlı özel hız aktif'
+        : 'Genel çalma ayarı aktif';
+
+  els.btnSpeedPanel.classList.toggle('is-modified', speed !== 1 || !preserve || eff.source !== 'global');
+  els.btnSaveTrackSpeed.disabled = !state.currentTrackId;
+  els.btnSaveListSpeed.disabled = !state.activeQueuePlaylistId;
+  els.btnClearActiveOverride.hidden = eff.source === 'global';
 
   els.pitchPreserve.checked = preserve;
   els.pitchChange.checked = !preserve;
@@ -544,7 +826,7 @@ function drawVisualizer() {
 
   if (!analyserNode || audio.paused) {
     for (let i = 0; i < barCount; i++) {
-      ctx.fillStyle = 'rgba(167, 139, 250, 0.25)';
+      ctx.fillStyle = 'rgba(30, 215, 96, 0.25)';
       ctx.fillRect(i * (barW + gap), canvas.height - 3, barW, 3);
     }
     visualizerRaf = 0;
@@ -556,8 +838,8 @@ function drawVisualizer() {
     const val = analyserData[i + 1] || 0;
     const h = Math.max(3, (val / 255) * canvas.height);
     const grad = ctx.createLinearGradient(0, canvas.height - h, 0, canvas.height);
-    grad.addColorStop(0, '#38bdf8');
-    grad.addColorStop(1, '#8b5cf6');
+    grad.addColorStop(0, '#1ed760');
+    grad.addColorStop(1, '#14532d');
     ctx.fillStyle = grad;
     ctx.fillRect(i * (barW + gap), canvas.height - h, barW, h);
   }
@@ -571,14 +853,15 @@ function kickVisualizer() {
 }
 
 /* ---------------- Playback Engine ---------------- */
-function setQueueAndPlay(orderedIds, startTrackId = null) {
-  const validIds = orderedIds.filter((id) => state.trackMap.has(id));
+function setQueueAndPlay(orderedIds, startTrackId = null, queuePlaylistId = null) {
+  const validIds = orderedIds.filter((id) => Boolean(getAnyTrackById(id)));
   if (validIds.length === 0) {
     showToast('Çalınabilecek şarkı bulunamadı.', 'info');
     return;
   }
 
   state.baseQueueIds = validIds;
+  state.activeQueuePlaylistId = queuePlaylistId || null;
   const chosenId = startTrackId && validIds.includes(startTrackId) ? startTrackId : validIds[0];
 
   if (state.settings.shuffle) {
@@ -598,15 +881,15 @@ async function playAtQueueIndex(index) {
     return;
   }
   const trackId = state.queueIds[index];
-  const track = state.trackMap.get(trackId);
+  const track = getAnyTrackById(trackId);
   if (!track) return;
 
   state.queueIndex = index;
   state.currentTrackId = trackId;
-  updateNowPlayingUI(track);
-  highlightPlayingRow();
+  updateNowPlayingUI(track, track.source === 'spotify');
+  highlightPlayingRows();
 
-  audio.src = audioUrlForTrack(trackId);
+  audio.src = audioUrlForTrack(track);
   applySpeedAndPitch();
   applyVolume();
 
@@ -617,15 +900,26 @@ async function playAtQueueIndex(index) {
 
   try {
     await audio.play();
+    updateNowPlayingUI(track, false);
     applySpeedAndPitch();
     kickVisualizer();
+
+    // Prefetch next Spotify track if applicable
+    const nextIdx = getNextIndex(state.queueIds.length, index, state.settings.repeatMode, true);
+    if (nextIdx >= 0 && nextIdx !== index) {
+      const nextTrack = getAnyTrackById(state.queueIds[nextIdx]);
+      if (nextTrack?.source === 'spotify') {
+        window.yusic.prefetchSpotifyTrack(nextTrack).catch(() => {});
+      }
+    }
   } catch (err) {
+    updateNowPlayingUI(track, false);
     showToast(`Şarkı çalınamadı: ${err?.message || 'Bilinmeyen hata'}`, 'error');
   }
   applyTransportState();
 }
 
-function updateNowPlayingUI(track) {
+function updateNowPlayingUI(track, isConnecting = false) {
   if (!track) {
     els.nowTitle.textContent = 'Şarkı seçilmedi';
     els.nowArtist.textContent = 'Çalmak için listeden bir şarkıya tıkla';
@@ -635,7 +929,9 @@ function updateNowPlayingUI(track) {
   }
 
   els.nowTitle.textContent = track.title;
-  els.nowArtist.textContent = track.artist;
+  els.nowArtist.textContent = isConnecting
+    ? `${track.artist} • Akış bağlanıyor...`
+    : track.artist;
 
   const coverUrl = coverUrlForTrack(track);
   if (coverUrl) {
@@ -662,9 +958,9 @@ function updateNowPlayingUI(track) {
   }
 }
 
-function highlightPlayingRow() {
-  for (const row of els.trackList.querySelectorAll('.track-row')) {
-    row.classList.toggle('is-playing', row.dataset.trackId === state.currentTrackId);
+function highlightPlayingRows() {
+  for (const el of document.querySelectorAll('.track-row, .track-card')) {
+    el.classList.toggle('is-playing', el.dataset.trackId === state.currentTrackId);
   }
 }
 
@@ -713,7 +1009,7 @@ function togglePlayPause() {
   if (!state.currentTrackId) {
     const visible = getVisibleTracks();
     if (visible.length > 0) {
-      setQueueAndPlay(visible.map((t) => t.id), visible[0].id);
+      setQueueAndPlay(visible.map((t) => t.id), visible[0].id, state.activePlaylistId);
     }
     return;
   }
@@ -755,7 +1051,401 @@ function cycleRepeatMode() {
   applyTransportState();
 }
 
-/* ---------------- Library & Playlist Rendering ---------------- */
+/* ---------------- Hero Cover & Shared Track Collection Renderer ---------------- */
+function renderHeroCoverArt(targetEl, { customCoverFile = null, spotifyCoverUrl = '', tracks = [], isLiked = false }) {
+  targetEl.innerHTML = '';
+  targetEl.className = isLiked ? 'hero-cover-art hero-cover-art--liked' : 'hero-cover-art';
+
+  if (customCoverFile) {
+    const img = document.createElement('img');
+    img.src = coverFileUrl(customCoverFile);
+    img.alt = '';
+    targetEl.appendChild(img);
+    return;
+  }
+
+  if (spotifyCoverUrl) {
+    const img = document.createElement('img');
+    img.src = spotifyCoverUrl;
+    img.alt = '';
+    targetEl.appendChild(img);
+    return;
+  }
+
+  if (isLiked) {
+    targetEl.textContent = '♥';
+    return;
+  }
+
+  const uniqueCovers = [];
+  const seen = new Set();
+  for (const t of tracks) {
+    const c = coverUrlForTrack(t);
+    if (c && !seen.has(c)) {
+      seen.add(c);
+      uniqueCovers.push(c);
+      if (uniqueCovers.length === 4) break;
+    }
+  }
+
+  if (uniqueCovers.length === 1) {
+    const img = document.createElement('img');
+    img.src = uniqueCovers[0];
+    img.alt = '';
+    targetEl.appendChild(img);
+    return;
+  }
+
+  if (uniqueCovers.length >= 2) {
+    const grid = document.createElement('div');
+    grid.className = 'hero-collage';
+    for (let i = 0; i < 4; i++) {
+      const c = uniqueCovers[i];
+      if (c) {
+        const img = document.createElement('img');
+        img.src = c;
+        img.alt = '';
+        grid.appendChild(img);
+      } else {
+        const tile = document.createElement('div');
+        tile.className = 'hero-collage-tile';
+        tile.textContent = '♪';
+        grid.appendChild(tile);
+      }
+    }
+    targetEl.appendChild(grid);
+    return;
+  }
+
+  targetEl.textContent = '♪';
+}
+
+function renderTrackCollection({
+  containerEl,
+  tableHeadEl,
+  tracks,
+  viewMode,
+  localPlaylist = null,
+  queueListId = null,
+  allowReorder = false,
+  isExternal = false
+}) {
+  containerEl.innerHTML = '';
+  containerEl.classList.remove('is-compact', 'is-grid');
+  if (viewMode === 'compact') containerEl.classList.add('is-compact');
+  if (viewMode === 'grid') containerEl.classList.add('is-grid');
+
+  tableHeadEl.hidden = tracks.length === 0 || viewMode === 'grid';
+
+  const orderedIds = tracks.map((t) => t.id);
+
+  tracks.forEach((track, idx) => {
+    const trackOverride = state.trackSpeedOverrides[track.id] || null;
+    const isPlaying = track.id === state.currentTrackId;
+    const cover = coverUrlForTrack(track);
+
+    if (viewMode === 'grid') {
+      const card = document.createElement('article');
+      card.className = 'track-card';
+      card.dataset.trackId = track.id;
+      if (isPlaying) card.classList.add('is-playing');
+
+      if (cover) {
+        const img = document.createElement('img');
+        img.src = cover;
+        img.alt = '';
+        img.loading = 'lazy';
+        card.appendChild(img);
+      } else {
+        const fallback = document.createElement('div');
+        fallback.className = 'card-art-fallback';
+        fallback.setAttribute('aria-hidden', 'true');
+        fallback.textContent = '♪';
+        card.appendChild(fallback);
+      }
+
+      const h3 = document.createElement('h3');
+      const playCardBtn = document.createElement('button');
+      playCardBtn.type = 'button';
+      playCardBtn.className = 'track-card-play';
+      playCardBtn.textContent = track.title;
+      playCardBtn.addEventListener('click', () => {
+        setQueueAndPlay(orderedIds, track.id, queueListId);
+      });
+      h3.appendChild(playCardBtn);
+
+      const metaP = document.createElement('p');
+      metaP.className = 'track-card-meta';
+      metaP.textContent = trackOverride
+        ? `${track.artist} • ${trackOverride.speed.toFixed(2)}x`
+        : track.artist;
+
+      const footer = document.createElement('footer');
+      const durSpan = document.createElement('span');
+      durSpan.className = 'track-card-dur';
+      durSpan.textContent = formatTime(track.duration);
+
+      const btnWrap = document.createElement('div');
+      btnWrap.className = 'track-actions';
+
+      const spdBtn = document.createElement('button');
+      spdBtn.type = 'button';
+      spdBtn.className = trackOverride ? 'track-action-btn is-accent' : 'track-action-btn';
+      spdBtn.textContent = trackOverride ? `${trackOverride.speed.toFixed(2)}x` : '⚡';
+      spdBtn.title = 'Şarkıya özel hız ve ses tonu ayarla';
+      spdBtn.addEventListener('click', () => {
+        openSpeedOverrideDialog({
+          kind: 'track',
+          id: track.id,
+          label: `${track.artist} — ${track.title}`,
+          currentOverride: trackOverride
+        });
+      });
+      btnWrap.appendChild(spdBtn);
+
+      if (isExternal) {
+        const dlBtn = document.createElement('button');
+        dlBtn.type = 'button';
+        dlBtn.className = 'track-action-btn';
+        dlBtn.textContent = '⬇';
+        dlBtn.title = 'MP3 olarak indir';
+        dlBtn.addEventListener('click', () => downloadSpotifyTrackOffline(track));
+        btnWrap.appendChild(dlBtn);
+      } else if (localPlaylist) {
+        const remBtn = document.createElement('button');
+        remBtn.type = 'button';
+        remBtn.className = 'track-action-btn track-action-btn--danger';
+        remBtn.textContent = '×';
+        remBtn.title = 'Listeden çıkar';
+        remBtn.addEventListener('click', () =>
+          window.yusic.removeTrackFromPlaylist(localPlaylist.id, track.id)
+        );
+        btnWrap.appendChild(remBtn);
+      } else {
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'track-action-btn';
+        addBtn.textContent = '+';
+        addBtn.title = 'Playliste ekle';
+        addBtn.addEventListener('click', () => openAddToPlaylistDialog(track));
+        btnWrap.appendChild(addBtn);
+      }
+
+      footer.append(durSpan, btnWrap);
+      card.append(h3, metaP, footer);
+      containerEl.appendChild(card);
+      return;
+    }
+
+    // List or Compact row
+    const row = document.createElement('div');
+    row.className = 'track-row';
+    row.setAttribute('role', 'listitem');
+    row.dataset.trackId = track.id;
+    if (isPlaying) row.classList.add('is-playing');
+
+    if (allowReorder && localPlaylist) {
+      row.draggable = true;
+      row.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('application/x-yusic-track-index', String(idx));
+      });
+      row.addEventListener('dragover', (e) => {
+        if (e.dataTransfer.types.includes('application/x-yusic-track-index')) {
+          e.preventDefault();
+          row.classList.add('is-drag-over');
+        }
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('is-drag-over'));
+      row.addEventListener('drop', async (e) => {
+        row.classList.remove('is-drag-over');
+        const fromStr = e.dataTransfer.getData('application/x-yusic-track-index');
+        if (!fromStr) return;
+        e.preventDefault();
+        const fromIdx = Number.parseInt(fromStr, 10);
+        if (Number.isNaN(fromIdx) || fromIdx === idx) return;
+        const nextOrder = localPlaylist.trackIds.slice();
+        const [moved] = nextOrder.splice(fromIdx, 1);
+        nextOrder.splice(idx, 0, moved);
+        await window.yusic.reorderPlaylist(localPlaylist.id, nextOrder);
+      });
+    }
+
+    const idxEl = document.createElement('span');
+    idxEl.className = 'col-idx';
+    idxEl.innerHTML = `<span class="track-row-idx-num">${idx + 1}</span><span class="track-row-idx-play">▶</span>`;
+
+    const playBtn = document.createElement('button');
+    playBtn.type = 'button';
+    playBtn.className = 'track-play-btn';
+
+    const thumb = document.createElement('span');
+    thumb.className = 'track-thumb';
+    if (cover) {
+      const img = document.createElement('img');
+      img.src = cover;
+      img.alt = '';
+      img.loading = 'lazy';
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = '♪';
+    }
+
+    const textCol = document.createElement('span');
+    textCol.className = 'track-text';
+    const titleLine = document.createElement('span');
+    titleLine.className = 'track-title-line';
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'track-title';
+    titleSpan.textContent = track.title;
+    titleLine.appendChild(titleSpan);
+
+    if (trackOverride) {
+      const chip = document.createElement('span');
+      chip.className = 'track-speed-chip';
+      chip.textContent = `${trackOverride.speed.toFixed(2)}x${trackOverride.preservePitch ? '' : ' • Ton'}`;
+      titleLine.appendChild(chip);
+    }
+
+    const artistSpan = document.createElement('span');
+    artistSpan.className = 'track-artist';
+    artistSpan.textContent = track.artist;
+    textCol.append(titleLine, artistSpan);
+
+    playBtn.append(thumb, textCol);
+    playBtn.addEventListener('click', () => {
+      setQueueAndPlay(orderedIds, track.id, queueListId);
+    });
+
+    const albumEl = document.createElement('span');
+    albumEl.className = 'track-album';
+    albumEl.textContent =
+      track.album || track.folder || (track.ext ? track.ext.replace('.', '').toUpperCase() : 'Spotify');
+
+    const durEl = document.createElement('span');
+    durEl.className = 'track-dur';
+    durEl.textContent = formatTime(track.duration);
+
+    const actionsEl = document.createElement('div');
+    actionsEl.className = 'track-actions';
+
+    const speedBtn = document.createElement('button');
+    speedBtn.type = 'button';
+    speedBtn.className = trackOverride ? 'track-action-btn is-accent' : 'track-action-btn';
+    speedBtn.textContent = trackOverride ? `${trackOverride.speed.toFixed(2)}x` : '⚡ Hız';
+    speedBtn.title = 'Bu şarkıya özel hız ayarla';
+    speedBtn.addEventListener('click', () => {
+      openSpeedOverrideDialog({
+        kind: 'track',
+        id: track.id,
+        label: `${track.artist} — ${track.title}`,
+        currentOverride: trackOverride
+      });
+    });
+    actionsEl.appendChild(speedBtn);
+
+    if (isExternal) {
+      const dlBtn = document.createElement('button');
+      dlBtn.type = 'button';
+      dlBtn.className = 'track-action-btn';
+      dlBtn.textContent = '⬇ MP3';
+      dlBtn.title = 'Çevrimdışı MP3 indir';
+      dlBtn.addEventListener('click', () => downloadSpotifyTrackOffline(track));
+      actionsEl.appendChild(dlBtn);
+    } else if (allowReorder && localPlaylist) {
+      const upBtn = document.createElement('button');
+      upBtn.type = 'button';
+      upBtn.className = 'track-action-btn';
+      upBtn.textContent = '↑';
+      upBtn.title = 'Yukarı taşı';
+      upBtn.disabled = idx === 0;
+      upBtn.addEventListener('click', async () => {
+        const nextOrder = localPlaylist.trackIds.slice();
+        [nextOrder[idx - 1], nextOrder[idx]] = [nextOrder[idx], nextOrder[idx - 1]];
+        await window.yusic.reorderPlaylist(localPlaylist.id, nextOrder);
+      });
+
+      const downBtn = document.createElement('button');
+      downBtn.type = 'button';
+      downBtn.className = 'track-action-btn';
+      downBtn.textContent = '↓';
+      downBtn.title = 'Aşağı taşı';
+      downBtn.disabled = idx === tracks.length - 1;
+      downBtn.addEventListener('click', async () => {
+        const nextOrder = localPlaylist.trackIds.slice();
+        [nextOrder[idx + 1], nextOrder[idx]] = [nextOrder[idx], nextOrder[idx + 1]];
+        await window.yusic.reorderPlaylist(localPlaylist.id, nextOrder);
+      });
+
+      const removeFromPlBtn = document.createElement('button');
+      removeFromPlBtn.type = 'button';
+      removeFromPlBtn.className = 'track-action-btn track-action-btn--danger';
+      removeFromPlBtn.textContent = 'Çıkar';
+      removeFromPlBtn.title = 'Playlistten çıkar';
+      removeFromPlBtn.addEventListener('click', async () => {
+        await window.yusic.removeTrackFromPlaylist(localPlaylist.id, track.id);
+      });
+
+      actionsEl.append(upBtn, downBtn, removeFromPlBtn);
+    } else if (localPlaylist) {
+      const removeFromPlBtn = document.createElement('button');
+      removeFromPlBtn.type = 'button';
+      removeFromPlBtn.className = 'track-action-btn track-action-btn--danger';
+      removeFromPlBtn.textContent = 'Çıkar';
+      removeFromPlBtn.addEventListener('click', async () => {
+        await window.yusic.removeTrackFromPlaylist(localPlaylist.id, track.id);
+      });
+      actionsEl.appendChild(removeFromPlBtn);
+    } else {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'track-action-btn';
+      addBtn.textContent = '+ Liste';
+      addBtn.title = 'Playliste ekle';
+      addBtn.addEventListener('click', () => openAddToPlaylistDialog(track));
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'track-action-btn track-action-btn--danger';
+      delBtn.textContent = 'Sil';
+      delBtn.title = 'Müzik dosyasını Geri Dönüşüm Kutusuna taşı';
+      delBtn.addEventListener('click', () => {
+        openConfirmDialog({
+          title: 'Şarkıyı Sil',
+          message: `"${track.artist} - ${track.title}" dosyasını Geri Dönüşüm Kutusu'na taşımak istediğine emin misin?`,
+          okLabel: 'Dosyayı Sil',
+          onConfirm: async () => {
+            await window.yusic.deleteTrack(track.id);
+            showToast('Dosya Geri Dönüşüm Kutusuna taşındı.', 'info');
+          }
+        });
+      });
+
+      actionsEl.append(addBtn, delBtn);
+    }
+
+    row.append(idxEl, playBtn, albumEl, durEl, actionsEl);
+    containerEl.appendChild(row);
+  });
+}
+
+async function downloadSpotifyTrackOffline(track) {
+  if (!track?.spotifyUrl && !track?.spotifyId) {
+    showToast('Bu parça için indirilebilir Spotify bağlantısı yok.', 'error');
+    return;
+  }
+  const url = track.spotifyUrl || `https://open.spotify.com/track/${track.spotifyId}`;
+  try {
+    const job = await window.yusic.startDownload(url, { autoCreatePlaylist: false });
+    state.downloads.unshift(job);
+    renderSidebar();
+    showToast(`MP3 indiriliyor: ${track.title}`, 'success');
+  } catch (err) {
+    showToast(err?.message || 'İndirme başlatılamadı.', 'error');
+  }
+}
+
+/* ---------------- Library & Sidebar Rendering ---------------- */
 function getActivePlaylist() {
   if (!state.activePlaylistId) return null;
   return state.playlists.find((p) => p.id === state.activePlaylistId) || null;
@@ -800,6 +1490,7 @@ function getVisibleTracks() {
 
 function renderSidebar() {
   els.badgeAllCount.textContent = String(state.tracks.length);
+  els.badgeSpotifyStatus.hidden = !state.spotifyAuth?.connected;
 
   const activeJobsCount = state.downloads.filter(
     (j) => j.status === 'queued' || j.status === 'running'
@@ -811,10 +1502,84 @@ function renderSidebar() {
     'is-active',
     state.viewTab === 'library' && !state.activePlaylistId
   );
+  els.navSpotify.classList.toggle('is-active', state.viewTab === 'spotify');
   els.navDownloader.classList.toggle('is-active', state.viewTab === 'downloader');
 
   els.sidebarPlaylists.innerHTML = '';
-  if (state.playlists.length === 0) {
+
+  // Pinned Spotify shortcuts inside "Kitaplığın" when connected
+  if (state.spotifyAuth?.connected) {
+    const likedRow = document.createElement('div');
+    likedRow.className = 'playlist-row';
+    if (state.viewTab === 'spotify' && state.spotifySubTab === 'liked') {
+      likedRow.classList.add('is-active');
+    }
+    const likedBtn = document.createElement('button');
+    likedBtn.type = 'button';
+    likedBtn.className = 'playlist-select-btn';
+    likedBtn.innerHTML = `
+      <span class="pl-mini-cover pl-mini-cover--liked">♥</span>
+      <span class="pl-mini-text">
+        <span class="playlist-name">Beğenilen Şarkılar</span>
+        <span class="playlist-sub">Spotify • Canlı Akış</span>
+      </span>`;
+    likedBtn.addEventListener('click', () => {
+      state.viewTab = 'spotify';
+      state.spotifySubTab = 'liked';
+      loadSpotifyLiked(true);
+      renderAll();
+    });
+    likedRow.appendChild(likedBtn);
+    els.sidebarPlaylists.appendChild(likedRow);
+
+    for (const spl of state.spotifyPlaylists) {
+      const spRow = document.createElement('div');
+      spRow.className = 'playlist-row';
+      if (
+        state.viewTab === 'spotify' &&
+        state.spotifySubTab === 'playlist-detail' &&
+        state.spotifyCollection.id === spl.id
+      ) {
+        spRow.classList.add('is-active');
+      }
+      const spBtn = document.createElement('button');
+      spBtn.type = 'button';
+      spBtn.className = 'playlist-select-btn';
+
+      const thumb = document.createElement('span');
+      thumb.className = 'pl-mini-cover';
+      const extPref = state.externalListPrefs[spl.id];
+      const coverSrc = extPref?.coverFile ? coverFileUrl(extPref.coverFile) : spl.coverUrl;
+      if (coverSrc) {
+        const img = document.createElement('img');
+        img.src = coverSrc;
+        img.alt = '';
+        thumb.appendChild(img);
+      } else {
+        thumb.textContent = '♪';
+      }
+
+      const txt = document.createElement('span');
+      txt.className = 'pl-mini-text';
+      const nm = document.createElement('span');
+      nm.className = 'playlist-name';
+      nm.textContent = spl.name;
+      const sub = document.createElement('span');
+      sub.className = 'playlist-sub';
+      sub.textContent = `Spotify • ${spl.trackCount} şarkı`;
+      txt.append(nm, sub);
+      spBtn.append(thumb, txt);
+      spBtn.addEventListener('click', () => {
+        state.viewTab = 'spotify';
+        openSpotifyPlaylistDetail(spl);
+        renderAll();
+      });
+      spRow.appendChild(spBtn);
+      els.sidebarPlaylists.appendChild(spRow);
+    }
+  }
+
+  if (state.playlists.length === 0 && !state.spotifyAuth?.connected) {
     const empty = document.createElement('div');
     empty.className = 'playlist-empty-note';
     empty.textContent = 'Henüz playlist oluşturulmadı.';
@@ -823,7 +1588,7 @@ function renderSidebar() {
   }
 
   for (const pl of state.playlists) {
-    const validCount = pl.trackIds.filter((id) => state.trackMap.has(id)).length;
+    const validTracks = pl.trackIds.map((id) => state.trackMap.get(id)).filter(Boolean);
     const row = document.createElement('div');
     row.className = 'playlist-row';
     row.setAttribute('role', 'listitem');
@@ -834,9 +1599,37 @@ function renderSidebar() {
     const selBtn = document.createElement('button');
     selBtn.type = 'button';
     selBtn.className = 'playlist-select-btn';
-    selBtn.innerHTML = `<span class="playlist-name"></span><span class="playlist-count"></span>`;
-    selBtn.querySelector('.playlist-name').textContent = pl.name;
-    selBtn.querySelector('.playlist-count').textContent = String(validCount);
+
+    const miniCover = document.createElement('span');
+    miniCover.className = 'pl-mini-cover';
+    const firstTrackCover = validTracks.map(coverUrlForTrack).find(Boolean);
+    if (pl.coverFile) {
+      const img = document.createElement('img');
+      img.src = coverFileUrl(pl.coverFile);
+      img.alt = '';
+      miniCover.appendChild(img);
+    } else if (firstTrackCover) {
+      const img = document.createElement('img');
+      img.src = firstTrackCover;
+      img.alt = '';
+      miniCover.appendChild(img);
+    } else {
+      miniCover.textContent = '♪';
+    }
+
+    const txt = document.createElement('span');
+    txt.className = 'pl-mini-text';
+    const nm = document.createElement('span');
+    nm.className = 'playlist-name';
+    nm.textContent = pl.name;
+    const sub = document.createElement('span');
+    sub.className = 'playlist-sub';
+    sub.textContent = pl.speedOverride
+      ? `Playlist • ${validTracks.length} şarkı • ${pl.speedOverride.speed.toFixed(2)}x`
+      : `Playlist • ${validTracks.length} şarkı`;
+    txt.append(nm, sub);
+    selBtn.append(miniCover, txt);
+
     selBtn.addEventListener('click', () => {
       state.viewTab = 'library';
       state.activePlaylistId = pl.id;
@@ -846,15 +1639,13 @@ function renderSidebar() {
     const actions = document.createElement('div');
     actions.className = 'playlist-row-actions';
 
-    const renameBtn = document.createElement('button');
-    renameBtn.type = 'button';
-    renameBtn.className = 'icon-btn';
-    renameBtn.textContent = '✎';
-    renameBtn.title = 'Yeniden adlandır';
-    renameBtn.setAttribute('aria-label', `${pl.name} adını değiştir`);
-    renameBtn.addEventListener('click', () => {
-      openPlaylistDialog('rename', { playlistId: pl.id, initialName: pl.name });
-    });
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'icon-btn';
+    editBtn.textContent = '✎';
+    editBtn.title = 'Ayrıntıları & fotoğrafı düzenle';
+    editBtn.setAttribute('aria-label', `${pl.name} düzenle`);
+    editBtn.addEventListener('click', () => openPlaylistEditDialog(pl));
 
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
@@ -876,19 +1667,30 @@ function renderSidebar() {
       });
     });
 
-    actions.append(renameBtn, delBtn);
+    actions.append(editBtn, delBtn);
     row.append(selBtn, actions);
     els.sidebarPlaylists.appendChild(row);
   }
 }
 
-function renderMainView() {
-  const isDl = state.viewTab === 'downloader';
-  els.viewLibrary.hidden = isDl;
-  els.viewDownloader.hidden = !isDl;
+function syncViewModeButtons(buttons, activeMode) {
+  for (const btn of buttons) {
+    btn.classList.toggle('is-active', btn.dataset.mode === activeMode);
+  }
+}
 
-  if (isDl) {
+function renderMainView() {
+  els.viewLibrary.hidden = state.viewTab !== 'library';
+  els.viewSpotify.hidden = state.viewTab !== 'spotify';
+  els.viewDownloader.hidden = state.viewTab !== 'downloader';
+
+  if (state.viewTab === 'downloader') {
     renderDownloaderJobs();
+    return;
+  }
+
+  if (state.viewTab === 'spotify') {
+    renderSpotifyView();
     return;
   }
 
@@ -899,186 +1701,360 @@ function renderMainView() {
 
   const visibleTracks = getVisibleTracks();
   const totalSec = visibleTracks.reduce((acc, t) => acc + (t.duration || 0), 0);
+  const viewMode = activePl ? activePl.viewMode || 'list' : state.settings.libraryViewMode || 'list';
 
+  els.libHero.classList.toggle('is-playlist-hero', Boolean(activePl));
   els.viewEyebrow.textContent = activePl ? 'PLAYLİST' : 'KÜTÜPHANE';
   els.viewTitle.textContent = activePl ? activePl.name : 'Tüm Müzikler';
+
+  if (activePl && activePl.description) {
+    els.viewDesc.hidden = false;
+    els.viewDesc.textContent = activePl.description;
+  } else {
+    els.viewDesc.hidden = true;
+    els.viewDesc.textContent = '';
+  }
+
   els.viewMeta.textContent = `${visibleTracks.length} şarkı • ${formatTotalDuration(totalSec)}`;
   els.sortWrap.hidden = Boolean(activePl);
+  els.btnHeroPickCover.hidden = !activePl;
+  els.btnPlaylistSpeed.hidden = !activePl;
+  els.btnPlaylistEdit.hidden = !activePl;
 
-  els.trackList.innerHTML = '';
+  if (activePl?.speedOverride) {
+    els.playlistSpeedPill.hidden = false;
+    els.playlistSpeedPill.textContent = `⚡ Liste Hızı: ${activePl.speedOverride.speed.toFixed(2)}x${
+      activePl.speedOverride.preservePitch ? '' : ' • Ton Değişir'
+    }`;
+  } else {
+    els.playlistSpeedPill.hidden = true;
+  }
+
+  renderHeroCoverArt(els.libHeroCoverArt, {
+    customCoverFile: activePl?.coverFile || null,
+    tracks: visibleTracks
+  });
+
+  syncViewModeButtons([els.btnViewList, els.btnViewCompact, els.btnViewGrid], viewMode);
+
   const isEmpty = visibleTracks.length === 0;
-  els.trackTableHead.hidden = isEmpty;
   els.libraryEmpty.hidden = !isEmpty;
-
   if (isEmpty) {
+    els.trackList.innerHTML = '';
+    els.trackTableHead.hidden = true;
     if (state.searchQuery.trim()) {
       els.emptyTitle.textContent = 'Aramanla eşleşen şarkı yok';
       els.emptyDesc.textContent = 'Farklı bir kelime deneyebilir veya arama kutusunu temizleyebilirsin.';
       els.emptyMuzikPath.hidden = true;
     } else if (activePl) {
       els.emptyTitle.textContent = 'Bu playlist henüz boş';
-      els.emptyDesc.textContent = 'Tüm Müzikler sekmesindeki şarkılarda "+ Liste" butonunu kullanarak bu playliste şarkı ekleyebilirsin.';
+      els.emptyDesc.textContent = 'Tüm Müzikler sekmesindeki şarkılarda "+ Liste" düğmesini kullanarak bu playliste şarkı ekleyebilirsin.';
       els.emptyMuzikPath.hidden = true;
     } else {
       els.emptyTitle.textContent = 'Müzik klasörün henüz boş';
       els.emptyDesc.textContent =
-        "Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify/YouTube'dan indirebilirsin.";
+        "Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify/YouTube'dan dinleyip indirebilirsin.";
       els.emptyMuzikPath.hidden = false;
       els.emptyMuzikPath.textContent = state.muzikDir;
     }
     return;
   }
 
-  const canReorder = Boolean(activePl && !state.searchQuery.trim());
-  const orderedIds = visibleTracks.map((t) => t.id);
-
-  visibleTracks.forEach((track, idx) => {
-    const row = document.createElement('div');
-    row.className = 'track-row';
-    row.setAttribute('role', 'listitem');
-    row.dataset.trackId = track.id;
-    if (track.id === state.currentTrackId) row.classList.add('is-playing');
-
-    if (canReorder) {
-      row.draggable = true;
-      row.addEventListener('dragstart', (e) => {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('application/x-yusic-track-index', String(idx));
-      });
-      row.addEventListener('dragover', (e) => {
-        if (e.dataTransfer.types.includes('application/x-yusic-track-index')) {
-          e.preventDefault();
-          row.classList.add('is-drag-over');
-        }
-      });
-      row.addEventListener('dragleave', () => row.classList.remove('is-drag-over'));
-      row.addEventListener('drop', async (e) => {
-        row.classList.remove('is-drag-over');
-        const fromStr = e.dataTransfer.getData('application/x-yusic-track-index');
-        if (!fromStr) return;
-        e.preventDefault();
-        const fromIdx = Number.parseInt(fromStr, 10);
-        if (Number.isNaN(fromIdx) || fromIdx === idx) return;
-        const nextOrder = activePl.trackIds.slice();
-        const [moved] = nextOrder.splice(fromIdx, 1);
-        nextOrder.splice(idx, 0, moved);
-        await window.yusic.reorderPlaylist(activePl.id, nextOrder);
-      });
-    }
-
-    const idxEl = document.createElement('span');
-    idxEl.className = 'col-idx';
-    idxEl.textContent = String(idx + 1);
-
-    const playBtn = document.createElement('button');
-    playBtn.type = 'button';
-    playBtn.className = 'track-play-btn';
-
-    const thumb = document.createElement('span');
-    thumb.className = 'track-thumb';
-    const cover = coverUrlForTrack(track);
-    if (cover) {
-      const img = document.createElement('img');
-      img.src = cover;
-      img.alt = '';
-      img.loading = 'lazy';
-      thumb.appendChild(img);
-    } else {
-      thumb.textContent = '♪';
-    }
-
-    const textCol = document.createElement('span');
-    textCol.className = 'track-text';
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'track-title';
-    titleSpan.textContent = track.title;
-    const artistSpan = document.createElement('span');
-    artistSpan.className = 'track-artist';
-    artistSpan.textContent = track.artist;
-    textCol.append(titleSpan, artistSpan);
-
-    playBtn.append(thumb, textCol);
-    playBtn.addEventListener('click', () => {
-      setQueueAndPlay(orderedIds, track.id);
-    });
-
-    const albumEl = document.createElement('span');
-    albumEl.className = 'track-album';
-    albumEl.textContent = track.album || track.folder || track.ext.replace('.', '').toUpperCase();
-
-    const durEl = document.createElement('span');
-    durEl.className = 'track-dur';
-    durEl.textContent = formatTime(track.duration);
-
-    const actionsEl = document.createElement('div');
-    actionsEl.className = 'track-actions';
-
-    if (canReorder) {
-      const upBtn = document.createElement('button');
-      upBtn.type = 'button';
-      upBtn.className = 'track-action-btn';
-      upBtn.textContent = '↑';
-      upBtn.title = 'Yukarı taşı';
-      upBtn.disabled = idx === 0;
-      upBtn.addEventListener('click', async () => {
-        const nextOrder = activePl.trackIds.slice();
-        [nextOrder[idx - 1], nextOrder[idx]] = [nextOrder[idx], nextOrder[idx - 1]];
-        await window.yusic.reorderPlaylist(activePl.id, nextOrder);
-      });
-
-      const downBtn = document.createElement('button');
-      downBtn.type = 'button';
-      downBtn.className = 'track-action-btn';
-      downBtn.textContent = '↓';
-      downBtn.title = 'Aşağı taşı';
-      downBtn.disabled = idx === visibleTracks.length - 1;
-      downBtn.addEventListener('click', async () => {
-        const nextOrder = activePl.trackIds.slice();
-        [nextOrder[idx + 1], nextOrder[idx]] = [nextOrder[idx], nextOrder[idx + 1]];
-        await window.yusic.reorderPlaylist(activePl.id, nextOrder);
-      });
-
-      const removeFromPlBtn = document.createElement('button');
-      removeFromPlBtn.type = 'button';
-      removeFromPlBtn.className = 'track-action-btn track-action-btn--danger';
-      removeFromPlBtn.textContent = 'Çıkar';
-      removeFromPlBtn.title = 'Playlistten çıkar';
-      removeFromPlBtn.addEventListener('click', async () => {
-        await window.yusic.removeTrackFromPlaylist(activePl.id, track.id);
-      });
-
-      actionsEl.append(upBtn, downBtn, removeFromPlBtn);
-    } else {
-      const addBtn = document.createElement('button');
-      addBtn.type = 'button';
-      addBtn.className = 'track-action-btn';
-      addBtn.textContent = '+ Liste';
-      addBtn.title = 'Playliste ekle';
-      addBtn.addEventListener('click', () => openAddToPlaylistDialog(track));
-
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'track-action-btn track-action-btn--danger';
-      delBtn.textContent = 'Sil';
-      delBtn.title = 'Müzik dosyasını Geri Dönüşüm Kutusuna taşı';
-      delBtn.addEventListener('click', () => {
-        openConfirmDialog({
-          title: 'Şarkıyı Sil',
-          message: `"${track.artist} - ${track.title}" dosyasını Geri Dönüşüm Kutusu'na taşımak istediğine emin misin?`,
-          okLabel: 'Dosyayı Sil',
-          onConfirm: async () => {
-            await window.yusic.deleteTrack(track.id);
-            showToast('Dosya Geri Dönüşüm Kutusuna taşındı.', 'info');
-          }
-        });
-      });
-
-      actionsEl.append(addBtn, delBtn);
-    }
-
-    row.append(idxEl, playBtn, albumEl, durEl, actionsEl);
-    els.trackList.appendChild(row);
+  const canReorder = Boolean(activePl && !state.searchQuery.trim() && viewMode !== 'grid');
+  renderTrackCollection({
+    containerEl: els.trackList,
+    tableHeadEl: els.trackTableHead,
+    tracks: visibleTracks,
+    viewMode,
+    localPlaylist: activePl,
+    queueListId: activePl?.id || null,
+    allowReorder: canReorder,
+    isExternal: false
   });
+}
+
+/* ---------------- Spotify Live View & Actions ---------------- */
+async function loadSpotifyLiked(reset = true) {
+  if (!state.spotifyAuth.connected) return;
+  const col = state.spotifyCollection;
+  col.id = 'spotify:liked';
+  col.title = 'Beğenilen Şarkılar';
+  col.eyebrow = 'SPOTIFY BEĞENİLENLER';
+  col.description = 'Spotify hesabında beğendiğin şarkılar (indirmeden canlı akış)';
+  col.coverUrl = '';
+  col.isLiked = true;
+  col.spotifyPlaylistId = null;
+  col.truncatedAt100 = false;
+  if (reset) {
+    col.tracks = [];
+    col.offset = 0;
+    col.hasMore = false;
+  }
+  col.loading = true;
+  renderSpotifyView();
+
+  try {
+    const res = await window.yusic.getSpotifyLikedSongs({ limit: 50, offset: col.offset });
+    rememberSpotifyTracks(res.tracks);
+    col.tracks = reset ? res.tracks : [...col.tracks, ...res.tracks];
+    col.total = res.total;
+    col.hasMore = res.hasMore;
+    col.offset = col.tracks.length;
+  } catch (err) {
+    showToast(err?.message || 'Beğenilen şarkılar alınamadı.', 'error');
+  } finally {
+    col.loading = false;
+    if (state.viewTab === 'spotify') renderSpotifyView();
+  }
+}
+
+async function loadSpotifyPlaylistsList() {
+  if (!state.spotifyAuth.connected) return;
+  try {
+    const res = await window.yusic.getSpotifyUserPlaylists({ limit: 50, offset: 0 });
+    state.spotifyPlaylists = res.playlists || [];
+    renderSidebar();
+    if (state.viewTab === 'spotify') renderSpotifyView();
+  } catch (err) {
+    showToast(err?.message || 'Spotify listeleri alınamadı.', 'error');
+  }
+}
+
+async function openSpotifyPlaylistDetail(spl, reset = true) {
+  state.spotifySubTab = 'playlist-detail';
+  const col = state.spotifyCollection;
+  col.id = spl.id;
+  col.title = spl.name;
+  col.eyebrow = 'SPOTIFY PLAYLİST';
+  col.description = spl.description || (spl.ownerName ? `Oluşturan: ${spl.ownerName}` : '');
+  col.coverUrl = spl.coverUrl || '';
+  col.isLiked = false;
+  col.spotifyPlaylistId = spl.spotifyPlaylistId;
+  col.truncatedAt100 = false;
+  if (reset) {
+    col.tracks = [];
+    col.offset = 0;
+    col.hasMore = false;
+  }
+  col.loading = true;
+  renderSpotifyView();
+
+  try {
+    const res = await window.yusic.getSpotifyPlaylistTracks(spl.spotifyPlaylistId, {
+      limit: 100,
+      offset: col.offset
+    });
+    rememberSpotifyTracks(res.tracks);
+    if (res.playlist) {
+      col.title = res.playlist.name;
+      col.description = res.playlist.description || col.description;
+      col.coverUrl = res.playlist.coverUrl || col.coverUrl;
+    }
+    col.tracks = reset ? res.tracks : [...col.tracks, ...res.tracks];
+    col.total = res.total;
+    col.hasMore = res.hasMore;
+    col.offset = col.tracks.length;
+  } catch (err) {
+    showToast(err?.message || 'Playlist şarkıları alınamadı.', 'error');
+  } finally {
+    col.loading = false;
+    if (state.viewTab === 'spotify') renderSpotifyView();
+  }
+}
+
+async function loadSpotifyRecent() {
+  if (!state.spotifyAuth.connected) return;
+  const col = state.spotifyCollection;
+  col.id = 'spotify:recent';
+  col.title = 'Son Dinlenenler';
+  col.eyebrow = 'SPOTIFY GEÇMİŞ';
+  col.description = 'Spotify üzerinde yakın zamanda dinlediklerin';
+  col.coverUrl = '';
+  col.isLiked = false;
+  col.spotifyPlaylistId = null;
+  col.tracks = [];
+  col.hasMore = false;
+  col.loading = true;
+  renderSpotifyView();
+
+  try {
+    const res = await window.yusic.getSpotifyRecent({ limit: 30 });
+    rememberSpotifyTracks(res.tracks);
+    col.tracks = res.tracks;
+    col.total = res.tracks.length;
+  } catch (err) {
+    showToast(err?.message || 'Son dinlenenler alınamadı.', 'error');
+  } finally {
+    col.loading = false;
+    if (state.viewTab === 'spotify') renderSpotifyView();
+  }
+}
+
+async function runSpotifyCatalogSearch(query) {
+  const q = String(query || '').trim();
+  if (!q) return;
+  const col = state.spotifyCollection;
+  col.id = 'spotify:search';
+  col.title = `Arama: "${q}"`;
+  col.eyebrow = 'SPOTIFY ARAMA';
+  col.description = '';
+  col.coverUrl = '';
+  col.isLiked = false;
+  col.spotifyPlaylistId = null;
+  col.tracks = [];
+  col.hasMore = false;
+  col.loading = true;
+  renderSpotifyView();
+
+  try {
+    const res = await window.yusic.searchSpotifyTracks(q);
+    rememberSpotifyTracks(res.tracks);
+    col.tracks = res.tracks;
+    col.total = res.tracks.length;
+  } catch (err) {
+    showToast(err?.message || 'Spotify araması başarısız.', 'error');
+  } finally {
+    col.loading = false;
+    if (state.viewTab === 'spotify') renderSpotifyView();
+  }
+}
+
+function renderSpotifyView() {
+  const auth = state.spotifyAuth || {};
+  const connected = Boolean(auth.connected);
+
+  els.spRedirectUriCode.textContent = auth.redirectUri || 'http://127.0.0.1:43821/callback';
+  if (auth.clientId && !els.spClientIdInput.value) {
+    els.spClientIdInput.value = auth.clientId;
+  }
+
+  els.spUserBar.hidden = !connected;
+  els.spConnectCard.hidden = connected;
+  els.spSubnav.hidden = !connected;
+
+  if (connected && auth.user) {
+    els.spUserName.textContent = auth.user.displayName;
+    if (auth.user.imageUrl) {
+      els.spUserAvatar.src = auth.user.imageUrl;
+      els.spUserAvatar.hidden = false;
+    } else {
+      els.spUserAvatar.hidden = true;
+    }
+  }
+
+  for (const tabBtn of els.spSubnav.querySelectorAll('.sp-tab')) {
+    const isThis = tabBtn.dataset.sptab === state.spotifySubTab ||
+      (tabBtn.dataset.sptab === 'playlists' && state.spotifySubTab === 'playlist-detail');
+    tabBtn.classList.toggle('is-active', isThis);
+  }
+  els.spSearchForm.hidden = state.spotifySubTab !== 'search';
+
+  // Playlists grid subtab
+  if (connected && state.spotifySubTab === 'playlists') {
+    els.spPlaylistsGrid.hidden = false;
+    els.spCollectionArea.hidden = true;
+    els.spPlaylistsGrid.innerHTML = '';
+
+    for (const spl of state.spotifyPlaylists) {
+      const card = document.createElement('article');
+      card.className = 'track-card';
+      const extPref = state.externalListPrefs[spl.id];
+      const cover = extPref?.coverFile ? coverFileUrl(extPref.coverFile) : spl.coverUrl;
+      if (cover) {
+        const img = document.createElement('img');
+        img.src = cover;
+        img.alt = '';
+        img.loading = 'lazy';
+        card.appendChild(img);
+      } else {
+        const fb = document.createElement('div');
+        fb.className = 'card-art-fallback';
+        fb.textContent = '♪';
+        card.appendChild(fb);
+      }
+      const h3 = document.createElement('h3');
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'track-card-play';
+      openBtn.textContent = spl.name;
+      openBtn.addEventListener('click', () => openSpotifyPlaylistDetail(spl, true));
+      h3.appendChild(openBtn);
+
+      const meta = document.createElement('p');
+      meta.className = 'track-card-meta';
+      meta.textContent = `${spl.trackCount} şarkı${spl.ownerName ? ` • ${spl.ownerName}` : ''}`;
+
+      card.append(h3, meta);
+      els.spPlaylistsGrid.appendChild(card);
+    }
+    return;
+  }
+
+  els.spPlaylistsGrid.hidden = true;
+
+  // Show collection area if connected OR viewing a pasted public Spotify link!
+  const hasPublicCollection = state.spotifySubTab === 'public' && state.spotifyCollection.tracks.length > 0;
+  if (!connected && !hasPublicCollection) {
+    els.spCollectionArea.hidden = true;
+    return;
+  }
+
+  els.spCollectionArea.hidden = false;
+  const col = state.spotifyCollection;
+  const extPref = state.externalListPrefs[col.id] || {};
+  const viewMode = extPref.viewMode || 'list';
+
+  els.spHero.classList.toggle('is-liked-hero', Boolean(col.isLiked));
+  els.spHeroEyebrow.textContent = col.eyebrow;
+  els.spHeroTitle.textContent = col.title;
+
+  if (col.description) {
+    els.spHeroDesc.hidden = false;
+    els.spHeroDesc.textContent = col.description;
+  } else {
+    els.spHeroDesc.hidden = true;
+  }
+
+  const totalSec = col.tracks.reduce((acc, t) => acc + (t.duration || 0), 0);
+  els.spHeroMeta.textContent = col.loading
+    ? 'Yükleniyor...'
+    : `${col.tracks.length}${col.total > col.tracks.length ? ` / ${col.total}` : ''} şarkı • ${formatTotalDuration(totalSec)}`;
+
+  if (extPref.speedOverride) {
+    els.spSpeedPill.hidden = false;
+    els.spSpeedPill.textContent = `⚡ Liste Hızı: ${extPref.speedOverride.speed.toFixed(2)}x${
+      extPref.speedOverride.preservePitch ? '' : ' • Ton Değişir'
+    }`;
+  } else {
+    els.spSpeedPill.hidden = true;
+  }
+
+  renderHeroCoverArt(els.spHeroCoverArt, {
+    customCoverFile: extPref.coverFile || null,
+    spotifyCoverUrl: col.coverUrl || '',
+    tracks: col.tracks,
+    isLiked: col.isLiked
+  });
+
+  syncViewModeButtons([els.btnSpViewList, els.btnSpViewCompact, els.btnSpViewGrid], viewMode);
+
+  const q = state.spotifyFilterQuery.trim().toLocaleLowerCase('tr');
+  const filtered = q
+    ? col.tracks.filter((t) => `${t.title} ${t.artist} ${t.album}`.toLocaleLowerCase('tr').includes(q))
+    : col.tracks;
+
+  renderTrackCollection({
+    containerEl: els.spTrackList,
+    tableHeadEl: els.spTableHead,
+    tracks: filtered,
+    viewMode,
+    localPlaylist: null,
+    queueListId: col.id,
+    allowReorder: false,
+    isExternal: true
+  });
+
+  els.spLoadMoreWrap.hidden = !col.hasMore || col.loading;
 }
 
 /* ---------------- Downloader Rendering ---------------- */
@@ -1128,7 +2104,7 @@ function renderDownloaderJobs() {
   if (state.downloads.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state empty-state--compact';
-    empty.innerHTML = `<p class="empty-desc">Henüz aktif veya tamamlanmış bir indirme yok. Spotify veya YouTube linki yapıştırıp <strong>İndir</strong>'e bas.</p>`;
+    empty.innerHTML = `<p class="empty-desc">Henüz aktif veya tamamlanmış bir indirme yok. Spotify veya YouTube linki yapıştırıp <strong>MP3 İndir</strong>'e bas.</p>`;
     els.dlJobs.appendChild(empty);
     return;
   }
@@ -1244,27 +2220,34 @@ function renderDownloaderJobs() {
   }
 }
 
+/* ---------------- Auto-Updater UI (Strict Same-Version Guard) ---------------- */
 function renderUpdateState() {
   const u = state.updateState;
-  const curVer = u?.currentVersion || state.appVersion || '1.0.0';
+  const curVer = u?.currentVersion || state.appVersion || '1.0.1';
   els.appVersionLabel.textContent = `Yusic v${curVer}`;
   els.updateCurVer.textContent = `v${curVer}`;
 
   if (!u) return;
 
+  const isReallyNewer = Boolean(u.latestVersion && compareSemver(u.latestVersion, curVer) > 0);
+  const effectiveStatus =
+    (u.status === 'available' || u.status === 'downloaded' || u.status === 'downloading') && !isReallyNewer
+      ? 'not-available'
+      : u.status;
+
   els.updateLatestVer.textContent = u.latestVersion ? `v${u.latestVersion}` : '—';
-  const hasActionable = u.status === 'available' || u.status === 'downloaded';
+  const hasActionable = isReallyNewer && (effectiveStatus === 'available' || effectiveStatus === 'downloaded');
   els.updateDot.hidden = !hasActionable;
 
-  // Banner visibility
   const showBanner =
     !state.updateBannerDismissed &&
-    (u.status === 'available' || u.status === 'downloading' || u.status === 'downloaded');
+    isReallyNewer &&
+    (effectiveStatus === 'available' || effectiveStatus === 'downloading' || effectiveStatus === 'downloaded');
   els.updateBanner.hidden = !showBanner;
 
   const pct = Math.min(100, Math.max(0, Number(u.progress) || 0));
 
-  if (u.status === 'available') {
+  if (effectiveStatus === 'available' && isReallyNewer) {
     els.updateBannerBadge.textContent = `v${u.latestVersion}`;
     els.updateBannerTitle.textContent = `Yeni Yusic sürümü mevcut (v${u.latestVersion})`;
     els.updateBannerSub.textContent = u.isPackaged
@@ -1273,14 +2256,14 @@ function renderUpdateState() {
     els.updateBannerProgress.hidden = true;
     els.btnBannerAction.hidden = false;
     els.btnBannerAction.textContent = u.isPackaged ? 'Güncellemeyi İndir' : 'Setup İndir';
-  } else if (u.status === 'downloading') {
+  } else if (effectiveStatus === 'downloading' && isReallyNewer) {
     els.updateBannerBadge.textContent = `%${pct}`;
     els.updateBannerTitle.textContent = `Güncelleme indiriliyor (v${u.latestVersion || ''})...`;
     els.updateBannerSub.textContent = 'İndirme bitince tek tıkla kurulabilir.';
     els.updateBannerProgress.hidden = false;
     els.updateBannerProgress.value = pct;
     els.btnBannerAction.hidden = true;
-  } else if (u.status === 'downloaded') {
+  } else if (effectiveStatus === 'downloaded' && isReallyNewer) {
     els.updateBannerBadge.textContent = 'Hazır';
     els.updateBannerTitle.textContent = `Yusic v${u.latestVersion || ''} kuruluma hazır`;
     els.updateBannerSub.textContent = 'Yeniden başlatarak hemen güncelleyebilirsiniz.';
@@ -1289,7 +2272,6 @@ function renderUpdateState() {
     els.btnBannerAction.textContent = 'Şimdi Güncelle ve Yeniden Başlat';
   }
 
-  // Modal dialog status
   const statusMessages = {
     idle: 'GitHub Releases üzerinden yeni sürüm kontrolü yapabilirsiniz.',
     checking: 'GitHub Releases kontrol ediliyor...',
@@ -1299,13 +2281,13 @@ function renderUpdateState() {
     downloaded: `v${u.latestVersion || ''} indirildi! Kurulumu tamamlamak için uygulamayı yeniden başlatın.`,
     error: `Güncelleme hatası: ${u.error || 'Bağlantı sağlanamadı.'}`
   };
-  els.updateStatusMsg.textContent = statusMessages[u.status] || statusMessages.idle;
+  els.updateStatusMsg.textContent = statusMessages[effectiveStatus] || statusMessages.idle;
 
-  if (u.status === 'checking') {
+  if (effectiveStatus === 'checking') {
     els.updateDialogProgressWrap.hidden = false;
     els.updateDialogProgress.removeAttribute('value');
     els.updateDialogPct.textContent = '...';
-  } else if (u.status === 'downloading') {
+  } else if (effectiveStatus === 'downloading' && isReallyNewer) {
     els.updateDialogProgressWrap.hidden = false;
     els.updateDialogProgress.value = pct;
     els.updateDialogPct.textContent = `%${pct}`;
@@ -1313,7 +2295,7 @@ function renderUpdateState() {
     els.updateDialogProgressWrap.hidden = true;
   }
 
-  if (u.releaseNotes) {
+  if (u.releaseNotes && isReallyNewer) {
     els.updateNotesWrap.hidden = false;
     els.updateNotes.textContent = u.releaseNotes;
   } else {
@@ -1321,12 +2303,12 @@ function renderUpdateState() {
     els.updateNotes.textContent = '';
   }
 
-  els.btnUpdateRecheck.disabled = u.status === 'checking' || u.status === 'downloading';
+  els.btnUpdateRecheck.disabled = effectiveStatus === 'checking' || effectiveStatus === 'downloading';
 
-  if (u.status === 'available') {
+  if (effectiveStatus === 'available' && isReallyNewer) {
     els.btnUpdateAction.hidden = false;
     els.btnUpdateAction.textContent = u.isPackaged ? 'Güncellemeyi İndir' : 'GitHub\'dan İndir';
-  } else if (u.status === 'downloaded') {
+  } else if (effectiveStatus === 'downloaded' && isReallyNewer) {
     els.btnUpdateAction.hidden = false;
     els.btnUpdateAction.textContent = 'Şimdi Güncelle ve Yeniden Başlat';
   } else {
@@ -1336,7 +2318,10 @@ function renderUpdateState() {
 
 async function triggerUpdateAction() {
   const u = state.updateState;
-  if (!u) return;
+  const curVer = u?.currentVersion || state.appVersion || '1.0.1';
+  if (!u || !u.latestVersion || compareSemver(u.latestVersion, curVer) <= 0) {
+    return;
+  }
   if (u.status === 'available') {
     const res = await window.yusic.downloadUpdate();
     if (res?.openedExternal) {
@@ -1369,6 +2354,19 @@ function bindEvents() {
     renderAll();
   });
 
+  els.navSpotify.addEventListener('click', () => {
+    state.viewTab = 'spotify';
+    if (
+      state.spotifyAuth.connected &&
+      state.spotifySubTab === 'liked' &&
+      state.spotifyCollection.tracks.length === 0 &&
+      !state.spotifyCollection.loading
+    ) {
+      loadSpotifyLiked(true);
+    }
+    renderAll();
+  });
+
   els.navDownloader.addEventListener('click', () => {
     state.viewTab = 'downloader';
     renderAll();
@@ -1376,10 +2374,9 @@ function bindEvents() {
 
   els.btnOpenFolder.addEventListener('click', () => window.yusic.openMusicFolder());
   els.btnEmptyOpenFolder.addEventListener('click', () => window.yusic.openMusicFolder());
-  els.btnEmptyGoDl.addEventListener('click', () => {
-    state.viewTab = 'downloader';
+  els.btnEmptyGoSpotify.addEventListener('click', () => {
+    state.viewTab = 'spotify';
     renderAll();
-    els.dlUrlInput.focus();
   });
 
   els.btnRescan.addEventListener('click', async () => {
@@ -1396,9 +2393,61 @@ function bindEvents() {
     }
   });
 
-  els.btnNewPlaylist.addEventListener('click', () => {
-    openPlaylistDialog('create');
+  els.btnNewPlaylist.addEventListener('click', () => openPlaylistDialog('create'));
+
+  els.btnHeroPickCover.addEventListener('click', async () => {
+    const pl = getActivePlaylist();
+    if (!pl) return;
+    const res = await window.yusic.pickPlaylistCover(pl.id, false);
+    if (!res?.canceled && res?.coverFile) {
+      showToast('Playlist kapak fotoğrafı güncellendi.', 'success');
+    }
   });
+
+  els.btnPlaylistEdit.addEventListener('click', () => {
+    const pl = getActivePlaylist();
+    if (pl) openPlaylistEditDialog(pl);
+  });
+
+  els.btnPlEditPickCover.addEventListener('click', async () => {
+    const plId = state.pendingEditPlaylistId;
+    if (!plId) return;
+    const res = await window.yusic.pickPlaylistCover(plId, false);
+    if (!res?.canceled && res?.playlist) {
+      renderPlaylistEditCoverPreview(res.playlist);
+    }
+  });
+
+  els.btnPlEditClearCover.addEventListener('click', async () => {
+    const plId = state.pendingEditPlaylistId;
+    if (!plId) return;
+    const updated = await window.yusic.updatePlaylistDetails(plId, { coverFile: null });
+    renderPlaylistEditCoverPreview(updated);
+  });
+
+  els.btnPlaylistSpeed.addEventListener('click', () => {
+    const pl = getActivePlaylist();
+    if (!pl) return;
+    openSpeedOverrideDialog({
+      kind: 'local-playlist',
+      id: pl.id,
+      label: pl.name,
+      currentOverride: pl.speedOverride || null
+    });
+  });
+
+  for (const btn of [els.btnViewList, els.btnViewCompact, els.btnViewGrid]) {
+    btn.addEventListener('click', async () => {
+      const mode = btn.dataset.mode;
+      const pl = getActivePlaylist();
+      if (pl) {
+        await window.yusic.updatePlaylistDetails(pl.id, { viewMode: mode });
+      } else {
+        saveSettingsPatch({ libraryViewMode: mode }, true);
+        renderMainView();
+      }
+    });
+  }
 
   els.btnAddPlQuick.addEventListener('click', async () => {
     const name = els.addPlNewName.value.trim();
@@ -1413,10 +2462,8 @@ function bindEvents() {
   els.btnPlayAll.addEventListener('click', () => {
     const list = getVisibleTracks();
     if (list.length === 0) return;
-    if (state.settings.shuffle) {
-      saveSettingsPatch({ shuffle: false }, true);
-    }
-    setQueueAndPlay(list.map((t) => t.id), list[0].id);
+    if (state.settings.shuffle) saveSettingsPatch({ shuffle: false }, true);
+    setQueueAndPlay(list.map((t) => t.id), list[0].id, state.activePlaylistId);
     applyTransportState();
   });
 
@@ -1424,7 +2471,7 @@ function bindEvents() {
     const list = getVisibleTracks();
     if (list.length === 0) return;
     saveSettingsPatch({ shuffle: true }, true);
-    setQueueAndPlay(list.map((t) => t.id), null);
+    setQueueAndPlay(list.map((t) => t.id), null, state.activePlaylistId);
     applyTransportState();
   });
 
@@ -1438,6 +2485,187 @@ function bindEvents() {
     renderMainView();
   });
 
+  // Spotify View bindings
+  els.btnSpDashboard.addEventListener('click', () => window.yusic.openSpotifyDashboard());
+  els.btnSpCopyRedirect.addEventListener('click', async () => {
+    const uri = els.spRedirectUriCode.textContent;
+    try {
+      await navigator.clipboard.writeText(uri);
+      showToast('Redirect URI panoya kopyalandı.', 'success');
+    } catch {
+      showToast(uri, 'info');
+    }
+  });
+
+  els.spLoginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const clientId = els.spClientIdInput.value.trim();
+    if (!clientId) {
+      showToast('Lütfen önce Spotify Client ID girin.', 'error');
+      return;
+    }
+    els.btnSpLogin.disabled = true;
+    els.btnSpLogin.textContent = 'Tarayıcıda Onay Bekleniyor...';
+    try {
+      const status = await window.yusic.loginSpotify(clientId);
+      state.spotifyAuth = status;
+      showToast('Spotify hesabın başarıyla bağlandı!', 'success');
+      await Promise.all([loadSpotifyLiked(true), loadSpotifyPlaylistsList()]);
+    } catch (err) {
+      showToast(err?.message || 'Spotify bağlantısı tamamlanamadı.', 'error');
+    } finally {
+      els.btnSpLogin.disabled = false;
+      els.btnSpLogin.textContent = 'Spotify ile Bağlan';
+      renderAll();
+    }
+  });
+
+  els.btnSpLogout.addEventListener('click', async () => {
+    state.spotifyAuth = await window.yusic.logoutSpotify();
+    state.spotifyPlaylists = [];
+    state.spotifyCollection.tracks = [];
+    showToast('Spotify oturumu kapatıldı.', 'info');
+    renderAll();
+  });
+
+  els.btnSpRefresh.addEventListener('click', async () => {
+    await loadSpotifyPlaylistsList();
+    if (state.spotifySubTab === 'liked') await loadSpotifyLiked(true);
+    else if (state.spotifySubTab === 'recent') await loadSpotifyRecent();
+    else if (state.spotifySubTab === 'playlist-detail' && state.spotifyCollection.spotifyPlaylistId) {
+      await openSpotifyPlaylistDetail(
+        {
+          id: state.spotifyCollection.id,
+          spotifyPlaylistId: state.spotifyCollection.spotifyPlaylistId,
+          name: state.spotifyCollection.title,
+          coverUrl: state.spotifyCollection.coverUrl,
+          description: state.spotifyCollection.description
+        },
+        true
+      );
+    }
+    showToast('Spotify kitaplığı yenilendi.', 'success');
+  });
+
+  els.spSubnav.addEventListener('click', (e) => {
+    const btn = e.target.closest('.sp-tab');
+    if (!btn) return;
+    const sub = btn.dataset.sptab;
+    state.spotifySubTab = sub;
+    if (sub === 'liked') loadSpotifyLiked(true);
+    else if (sub === 'playlists') loadSpotifyPlaylistsList();
+    else if (sub === 'recent') loadSpotifyRecent();
+    else renderSpotifyView();
+  });
+
+  els.spSearchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    runSpotifyCatalogSearch(els.spSearchInput.value);
+  });
+
+  els.spPublicForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = els.spPublicUrl.value.trim();
+    if (!url) return;
+    try {
+      const opened = await window.yusic.openPublicSpotifyLink(url);
+      rememberSpotifyTracks(opened.tracks);
+      state.viewTab = 'spotify';
+      state.spotifySubTab = 'public';
+      state.spotifyCollection = {
+        id: opened.id,
+        title: opened.name,
+        eyebrow: 'SPOTIFY AÇIK BAĞLANTI (CANLI AKIŞ)',
+        description: opened.truncatedAt100
+          ? 'Herkese açık bağlantıdan ilk 100 şarkı canlı dinleniyor'
+          : 'İndirmeden canlı dinleniyor',
+        coverUrl: opened.coverUrl,
+        isLiked: false,
+        spotifyPlaylistId: null,
+        tracks: opened.tracks,
+        total: opened.tracks.length,
+        hasMore: false,
+        offset: opened.tracks.length,
+        loading: false,
+        truncatedAt100: opened.truncatedAt100
+      };
+      els.spPublicUrl.value = '';
+      renderAll();
+      showToast(`"${opened.name}" akış için açıldı.`, 'success');
+    } catch (err) {
+      showToast(err?.message || 'Spotify bağlantısı açılamadı.', 'error');
+    }
+  });
+
+  els.btnSpPlayAll.addEventListener('click', () => {
+    const tracks = state.spotifyCollection.tracks;
+    if (tracks.length === 0) return;
+    if (state.settings.shuffle) saveSettingsPatch({ shuffle: false }, true);
+    setQueueAndPlay(tracks.map((t) => t.id), tracks[0].id, state.spotifyCollection.id);
+    applyTransportState();
+  });
+
+  els.btnSpShuffleAll.addEventListener('click', () => {
+    const tracks = state.spotifyCollection.tracks;
+    if (tracks.length === 0) return;
+    saveSettingsPatch({ shuffle: true }, true);
+    setQueueAndPlay(tracks.map((t) => t.id), null, state.spotifyCollection.id);
+    applyTransportState();
+  });
+
+  els.btnSpListSpeed.addEventListener('click', () => {
+    const col = state.spotifyCollection;
+    const pref = state.externalListPrefs[col.id];
+    openSpeedOverrideDialog({
+      kind: 'external-playlist',
+      id: col.id,
+      label: col.title,
+      currentOverride: pref?.speedOverride || null
+    });
+  });
+
+  els.btnSpHeroPickCover.addEventListener('click', async () => {
+    const col = state.spotifyCollection;
+    const res = await window.yusic.pickPlaylistCover(col.id, true);
+    if (!res?.canceled && res?.externalListPrefs) {
+      state.externalListPrefs = res.externalListPrefs;
+      renderAll();
+      showToast('Kapak fotoğrafı güncellendi.', 'success');
+    }
+  });
+
+  for (const btn of [els.btnSpViewList, els.btnSpViewCompact, els.btnSpViewGrid]) {
+    btn.addEventListener('click', async () => {
+      const mode = btn.dataset.mode;
+      state.externalListPrefs = await window.yusic.updateExternalListPref(
+        state.spotifyCollection.id,
+        { viewMode: mode }
+      );
+      renderSpotifyView();
+    });
+  }
+
+  els.spFilterInput.addEventListener('input', () => {
+    state.spotifyFilterQuery = els.spFilterInput.value;
+    renderSpotifyView();
+  });
+
+  els.btnSpLoadMore.addEventListener('click', () => {
+    if (state.spotifySubTab === 'liked') loadSpotifyLiked(false);
+    else if (state.spotifySubTab === 'playlist-detail' && state.spotifyCollection.spotifyPlaylistId) {
+      openSpotifyPlaylistDetail(
+        {
+          id: state.spotifyCollection.id,
+          spotifyPlaylistId: state.spotifyCollection.spotifyPlaylistId,
+          name: state.spotifyCollection.title,
+          coverUrl: state.spotifyCollection.coverUrl,
+          description: state.spotifyCollection.description
+        },
+        false
+      );
+    }
+  });
+
   // Transport controls
   els.btnPlayPause.addEventListener('click', togglePlayPause);
   els.btnPrev.addEventListener('click', handlePrev);
@@ -1445,7 +2673,6 @@ function bindEvents() {
   els.btnShuffle.addEventListener('click', toggleShuffle);
   els.btnRepeat.addEventListener('click', cycleRepeatMode);
 
-  // Seek slider
   els.seekSlider.addEventListener('input', () => {
     state.isSeeking = true;
     const val = Number(els.seekSlider.value) || 0;
@@ -1461,41 +2688,129 @@ function bindEvents() {
     state.isSeeking = false;
   });
 
-  // Speed & Pitch controls
+  // Speed & Pitch Popover (respects active override scope or global)
+  const persistCurrentSpeedChange = async (speed, preservePitch, immediate) => {
+    const eff = getActiveEffectiveSpeed();
+    if (eff.source === 'track' && state.currentTrackId) {
+      state.trackSpeedOverrides = await window.yusic.setTrackSpeedOverride(state.currentTrackId, {
+        speed,
+        preservePitch
+      });
+      renderAll();
+      return;
+    }
+    if (eff.source === 'playlist' && state.activeQueuePlaylistId) {
+      const localPl = state.playlists.find((p) => p.id === state.activeQueuePlaylistId);
+      if (localPl) {
+        await window.yusic.updatePlaylistDetails(localPl.id, {
+          speedOverride: { speed, preservePitch }
+        });
+      } else {
+        state.externalListPrefs = await window.yusic.updateExternalListPref(
+          state.activeQueuePlaylistId,
+          { speedOverride: { speed, preservePitch } }
+        );
+      }
+      renderAll();
+      return;
+    }
+    saveSettingsPatch({ speed, preservePitch }, immediate);
+    applySpeedAndPitch();
+  };
+
   els.speedSlider.addEventListener('input', () => {
     const speed = clampSpeed(els.speedSlider.value);
-    state.settings.speed = speed;
-    applySpeedAndPitch();
-    saveSettingsPatch({ speed }, false);
+    const eff = getActiveEffectiveSpeed();
+    if (eff.source === 'global') {
+      state.settings.speed = speed;
+      applySpeedAndPitch();
+      saveSettingsPatch({ speed }, false);
+    } else {
+      persistCurrentSpeedChange(speed, eff.preservePitch, false);
+    }
   });
 
   els.btnSpeedReset.addEventListener('click', () => {
-    state.settings.speed = 1.0;
-    applySpeedAndPitch();
-    saveSettingsPatch({ speed: 1.0 }, true);
+    const eff = getActiveEffectiveSpeed();
+    persistCurrentSpeedChange(1.0, eff.preservePitch, true);
   });
 
   els.speedPresets.addEventListener('click', (e) => {
     const btn = e.target.closest('.preset-chip');
     if (!btn) return;
     const speed = clampSpeed(btn.dataset.speed);
-    state.settings.speed = speed;
-    applySpeedAndPitch();
-    saveSettingsPatch({ speed }, true);
+    const eff = getActiveEffectiveSpeed();
+    persistCurrentSpeedChange(speed, eff.preservePitch, true);
   });
 
   els.pitchPreserve.addEventListener('change', () => {
     if (!els.pitchPreserve.checked) return;
-    state.settings.preservePitch = true;
-    applySpeedAndPitch();
-    saveSettingsPatch({ preservePitch: true }, true);
+    const eff = getActiveEffectiveSpeed();
+    persistCurrentSpeedChange(eff.speed, true, true);
   });
 
   els.pitchChange.addEventListener('change', () => {
     if (!els.pitchChange.checked) return;
-    state.settings.preservePitch = false;
-    applySpeedAndPitch();
-    saveSettingsPatch({ preservePitch: false }, true);
+    const eff = getActiveEffectiveSpeed();
+    persistCurrentSpeedChange(eff.speed, false, true);
+  });
+
+  els.btnSaveTrackSpeed.addEventListener('click', async () => {
+    if (!state.currentTrackId) return;
+    const eff = getActiveEffectiveSpeed();
+    state.trackSpeedOverrides = await window.yusic.setTrackSpeedOverride(state.currentTrackId, {
+      speed: eff.speed,
+      preservePitch: eff.preservePitch
+    });
+    showToast(`Şarkıya özel ${eff.speed.toFixed(2)}x hız kaydedildi.`, 'success');
+    renderAll();
+  });
+
+  els.btnSaveListSpeed.addEventListener('click', async () => {
+    if (!state.activeQueuePlaylistId) return;
+    const eff = getActiveEffectiveSpeed();
+    const localPl = state.playlists.find((p) => p.id === state.activeQueuePlaylistId);
+    if (localPl) {
+      await window.yusic.updatePlaylistDetails(localPl.id, {
+        speedOverride: { speed: eff.speed, preservePitch: eff.preservePitch }
+      });
+    } else {
+      state.externalListPrefs = await window.yusic.updateExternalListPref(
+        state.activeQueuePlaylistId,
+        { speedOverride: { speed: eff.speed, preservePitch: eff.preservePitch } }
+      );
+    }
+    showToast(`Listeye özel ${eff.speed.toFixed(2)}x hız kaydedildi.`, 'success');
+    renderAll();
+  });
+
+  els.btnClearActiveOverride.addEventListener('click', async () => {
+    const eff = getActiveEffectiveSpeed();
+    if (eff.source === 'track' && state.currentTrackId) {
+      state.trackSpeedOverrides = await window.yusic.setTrackSpeedOverride(state.currentTrackId, null);
+    } else if (eff.source === 'playlist' && state.activeQueuePlaylistId) {
+      const localPl = state.playlists.find((p) => p.id === state.activeQueuePlaylistId);
+      if (localPl) {
+        await window.yusic.updatePlaylistDetails(localPl.id, { speedOverride: null });
+      } else {
+        state.externalListPrefs = await window.yusic.updateExternalListPref(
+          state.activeQueuePlaylistId,
+          { speedOverride: null }
+        );
+      }
+    }
+    showToast('Özel hız kaldırıldı, genel ayara dönüldü.', 'info');
+    renderAll();
+  });
+
+  // Speed override modal live slider/presets
+  els.spdOvSlider.addEventListener('input', () => {
+    syncSpeedOverrideDialogUI(els.spdOvSlider.value, els.ovPitchPreserve.checked);
+  });
+  els.spdOvPresets.addEventListener('click', (e) => {
+    const chip = e.target.closest('.preset-chip');
+    if (!chip) return;
+    syncSpeedOverrideDialogUI(chip.dataset.speed, els.ovPitchPreserve.checked);
   });
 
   // Volume & Mute
@@ -1554,7 +2869,7 @@ function bindEvents() {
 
   audio.addEventListener('error', () => {
     if (!state.currentTrackId) return;
-    showToast('Ses dosyası okunurken hata oluştu, sonraki parçaya geçiliyor.', 'error');
+    showToast('Ses kaynağı yüklenemedi, sonraki parçaya geçiliyor.', 'error');
     if (state.queueIds.length > 1) {
       handleNext(false);
     } else {
@@ -1562,7 +2877,6 @@ function bindEvents() {
     }
   });
 
-  // Media Session
   if ('mediaSession' in navigator) {
     try {
       navigator.mediaSession.setActionHandler('play', () => togglePlayPause());
@@ -1708,10 +3022,7 @@ function bindEvents() {
 
   window.yusic.onPlaylistsUpdated((playlists) => {
     state.playlists = playlists || [];
-    renderSidebar();
-    if (state.viewTab === 'library' && state.activePlaylistId) {
-      renderMainView();
-    }
+    renderAll();
     if (els.addPlDialog.open) {
       renderAddToPlaylistModalList();
     }
@@ -1734,6 +3045,14 @@ function bindEvents() {
     } else if (prevStatus !== 'error' && job.status === 'error') {
       showToast(`İndirme hatası: ${job.error || job.title}`, 'error');
     }
+  });
+
+  window.yusic.onSpotifyAuthChanged((status) => {
+    state.spotifyAuth = status || { connected: false, clientId: '', user: null };
+    if (state.spotifyAuth.connected) {
+      loadSpotifyPlaylistsList();
+    }
+    renderAll();
   });
 
   // Updater controls & events
@@ -1764,10 +3083,16 @@ function bindEvents() {
 
   window.yusic.onUpdateStateChanged((nextState) => {
     if (!nextState) return;
+    const curVer = nextState.currentVersion || state.appVersion;
+    const isReallyNewer = Boolean(
+      nextState.latestVersion && compareSemver(nextState.latestVersion, curVer) > 0
+    );
+
     const prevStatus = state.updateState?.status;
     state.updateState = nextState;
 
     if (
+      isReallyNewer &&
       (nextState.status === 'available' || nextState.status === 'downloaded') &&
       prevStatus !== nextState.status
     ) {
@@ -1777,12 +3102,14 @@ function bindEvents() {
     renderUpdateState();
 
     if (
+      isReallyNewer &&
       nextState.status === 'available' &&
       state.lastNotifiedUpdateStatus !== `available:${nextState.latestVersion}`
     ) {
       state.lastNotifiedUpdateStatus = `available:${nextState.latestVersion}`;
       showToast(`Yeni sürüm mevcut: Yusic v${nextState.latestVersion}`, 'info');
     } else if (
+      isReallyNewer &&
       nextState.status === 'downloaded' &&
       state.lastNotifiedUpdateStatus !== `downloaded:${nextState.latestVersion}`
     ) {
@@ -1798,12 +3125,15 @@ async function initApp() {
 
   const initData = await window.yusic.init();
   state.muzikDir = initData.muzikDir;
-  state.appVersion = initData.appVersion || '1.0.0';
+  state.appVersion = initData.appVersion || '1.0.1';
   state.isPackaged = Boolean(initData.isPackaged);
   state.serverUrl = initData.serverUrl;
   state.serverToken = initData.serverToken;
   state.playlists = initData.playlists || [];
   state.settings = { ...state.settings, ...(initData.settings || {}) };
+  state.trackSpeedOverrides = initData.trackSpeedOverrides || {};
+  state.externalListPrefs = initData.externalListPrefs || {};
+  state.spotifyAuth = initData.spotifyAuth || { connected: false, clientId: '', user: null };
   state.downloads = initData.downloads || [];
   state.toolsStatus = initData.toolsStatus || null;
   state.updateState = initData.updateState || null;
@@ -1815,6 +3145,10 @@ async function initApp() {
   els.dlToolsWarning.hidden = Boolean(
     state.toolsStatus?.readyForYoutube && state.toolsStatus?.readyForSpotify
   );
+
+  if (state.spotifyAuth.connected) {
+    loadSpotifyPlaylistsList().catch(() => {});
+  }
 
   syncSliderVisual(els.seekSlider, '0:00');
   renderAll();

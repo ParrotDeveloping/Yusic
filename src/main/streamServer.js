@@ -2,7 +2,9 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
+import { selectBestYouTubeCandidate } from './downloader.js';
 
 const AUDIO_MIME_TYPES = {
   '.mp3': 'audio/mpeg',
@@ -22,14 +24,31 @@ const COVER_MIME_TYPES = {
   '.webp': 'image/webp'
 };
 
+const STREAM_CACHE_TTL_MS = 25 * 60 * 1000;
+
+function mimeForExt(ext = '') {
+  const lower = String(ext).toLowerCase().replace(/^\./, '');
+  if (lower === 'm4a' || lower === 'mp4') return 'audio/mp4';
+  if (lower === 'webm' || lower === 'opus') return 'audio/webm';
+  if (lower === 'mp3') return 'audio/mpeg';
+  if (lower === 'ogg') return 'audio/ogg';
+  return 'audio/mp4';
+}
+
 export class StreamServer {
-  constructor({ library, coversDir, ffmpegPath }) {
+  constructor({ library, coversDir, ffmpegPath, ytDlpPath = null, nodePath = null, fetchImpl = fetch }) {
     this.library = library;
     this.coversDir = coversDir;
     this.ffmpegPath = ffmpegPath;
+    this.ytDlpPath = ytDlpPath;
+    this.nodePath = nodePath;
+    this.fetchImpl = fetchImpl;
     this.token = crypto.randomBytes(16).toString('hex');
     this.server = null;
     this.port = 0;
+
+    this.streamCache = new Map();
+    this.inFlightResolves = new Map();
   }
 
   start() {
@@ -103,6 +122,14 @@ export class StreamServer {
       return;
     }
 
+    if (pathname.startsWith('/stream/spotify/')) {
+      const key = decodeURIComponent(pathname.slice('/stream/spotify/'.length));
+      this._serveExternalStream(req, res, key, urlObj).catch((err) => {
+        this._sendError(res, 502, err?.message || 'Stream failed');
+      });
+      return;
+    }
+
     this._sendError(res, 404, 'Not Found');
   }
 
@@ -134,7 +161,7 @@ export class StreamServer {
   }
 
   _serveAudio(req, res, trackId) {
-    const track = this.library.getTrackById(trackId);
+    const track = this.library?.getTrackById(trackId);
     if (!track || !fs.existsSync(track.fullPath)) {
       this._sendError(res, 404, 'Track not found');
       return;
@@ -255,7 +282,236 @@ export class StreamServer {
     });
   }
 
+  _ytDlpArgs(extraArgs) {
+    const args = ['--encoding', 'utf-8'];
+    if (this.nodePath) {
+      args.push('--js-runtimes', `node:${this.nodePath}`);
+    } else {
+      args.push('--js-runtimes', 'node');
+    }
+    return [...args, ...extraArgs];
+  }
+
+  _runYtDlp(args) {
+    return new Promise((resolve, reject) => {
+      const proc = spawn(this.ytDlpPath, this._ytDlpArgs(args), {
+        windowsHide: true,
+        env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
+      });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (c) => {
+        stdout += c.toString('utf8');
+      });
+      proc.stderr.on('data', (c) => {
+        stderr += c.toString('utf8');
+      });
+      proc.on('error', reject);
+      proc.on('close', (code) => resolve({ code, stdout, stderr }));
+    });
+  }
+
+  async resolveExternalStream({ key, title, artist, durationMs = 0, previewUrl = '', forceRefresh = false }) {
+    const cacheKey = String(key || `${artist}|${title}`);
+    const cached = !forceRefresh ? this.streamCache.get(cacheKey) : null;
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached;
+    }
+
+    if (!forceRefresh && this.inFlightResolves.has(cacheKey)) {
+      return this.inFlightResolves.get(cacheKey);
+    }
+
+    const promise = (async () => {
+      try {
+        if (this.ytDlpPath && title) {
+          const query = `${artist || ''} - ${title} audio`.trim();
+          const searchRes = await this._runYtDlp([
+            '--dump-json',
+            '--flat-playlist',
+            '--no-playlist',
+            `ytsearch5:${query}`
+          ]);
+
+          if (searchRes.code === 0) {
+            const candidates = [];
+            for (const line of searchRes.stdout.split(/\r?\n/)) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('{')) continue;
+              try {
+                candidates.push(JSON.parse(trimmed));
+              } catch {
+                // Ignore malformed JSON line
+              }
+            }
+
+            const best = selectBestYouTubeCandidate(candidates, { title, artist, durationMs });
+            if (best) {
+              const ytUrl =
+                best.webpage_url ||
+                (best.url && best.url.startsWith('http')
+                  ? best.url
+                  : `https://www.youtube.com/watch?v=${best.id}`);
+
+              const infoRes = await this._runYtDlp([
+                '-f',
+                'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+                '--no-playlist',
+                '--dump-single-json',
+                ytUrl
+              ]);
+
+              if (infoRes.code === 0) {
+                try {
+                  const info = JSON.parse(infoRes.stdout);
+                  let directUrl = info.url;
+                  let ext = info.ext;
+                  let headers = info.http_headers || {};
+
+                  if (!directUrl && Array.isArray(info.formats)) {
+                    const audioOnly = info.formats
+                      .filter((f) => f && f.url && f.acodec && f.acodec !== 'none' && (!f.vcodec || f.vcodec === 'none'))
+                      .sort((a, b) => (Number(b.abr) || 0) - (Number(a.abr) || 0));
+                    if (audioOnly[0]) {
+                      directUrl = audioOnly[0].url;
+                      ext = audioOnly[0].ext;
+                      headers = audioOnly[0].http_headers || headers;
+                    }
+                  }
+
+                  if (directUrl) {
+                    const entry = {
+                      url: directUrl,
+                      headers,
+                      contentType: mimeForExt(ext),
+                      expiresAt: Date.now() + STREAM_CACHE_TTL_MS
+                    };
+                    this.streamCache.set(cacheKey, entry);
+                    return entry;
+                  }
+                } catch {
+                  // Fall through to previewUrl fallback if present
+                }
+              }
+            }
+          }
+        }
+
+        if (previewUrl) {
+          const entry = {
+            url: previewUrl,
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            contentType: 'audio/mpeg',
+            expiresAt: Date.now() + STREAM_CACHE_TTL_MS
+          };
+          this.streamCache.set(cacheKey, entry);
+          return entry;
+        }
+
+        throw new Error('Canlı ses akışı bulunamadı.');
+      } finally {
+        this.inFlightResolves.delete(cacheKey);
+      }
+    })();
+
+    this.inFlightResolves.set(cacheKey, promise);
+    return promise;
+  }
+
+  prefetchExternalStream(track) {
+    if (!track || !track.title) return;
+    const key = track.id || track.spotifyId || `${track.artist}|${track.title}`;
+    this.resolveExternalStream({
+      key,
+      title: track.title,
+      artist: track.artist,
+      durationMs: track.durationMs || (track.duration ? track.duration * 1000 : 0),
+      previewUrl: track.previewUrl || ''
+    }).catch(() => {});
+  }
+
+  async _serveExternalStream(req, res, key, urlObj) {
+    const params = {
+      key,
+      title: urlObj.searchParams.get('title') || '',
+      artist: urlObj.searchParams.get('artist') || '',
+      durationMs: Number(urlObj.searchParams.get('dur')) || 0,
+      previewUrl: urlObj.searchParams.get('preview') || ''
+    };
+
+    let resolved = await this.resolveExternalStream(params);
+
+    const fetchUpstream = async (targetEntry) => {
+      const reqHeaders = { ...(targetEntry.headers || {}) };
+      if (req.headers.range) {
+        reqHeaders.Range = req.headers.range;
+      }
+      const controller = new AbortController();
+      const onClose = () => controller.abort();
+      req.once('close', onClose);
+      try {
+        const upRes = await this.fetchImpl(targetEntry.url, {
+          method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+          headers: reqHeaders,
+          signal: controller.signal
+        });
+        return { upRes, controller, onClose };
+      } catch (err) {
+        req.off('close', onClose);
+        throw err;
+      }
+    };
+
+    let attempt = await fetchUpstream(resolved);
+    if ((attempt.upRes.status === 403 || attempt.upRes.status === 410) && params.title) {
+      req.off('close', attempt.onClose);
+      try {
+        await attempt.upRes.body?.cancel();
+      } catch {
+        // Ignore cancel failure
+      }
+      resolved = await this.resolveExternalStream({ ...params, forceRefresh: true });
+      attempt = await fetchUpstream(resolved);
+    }
+
+    const { upRes, onClose } = attempt;
+    if (!upRes.ok && upRes.status !== 206) {
+      req.off('close', onClose);
+      this._sendError(res, 502, `Upstream stream error ${upRes.status}`);
+      return;
+    }
+
+    const outHeaders = {
+      'Content-Type': upRes.headers.get('content-type') || resolved.contentType || 'audio/mp4',
+      'Accept-Ranges': upRes.headers.get('accept-ranges') || 'bytes',
+      'Access-Control-Allow-Origin': '*'
+    };
+    const len = upRes.headers.get('content-length');
+    if (len) outHeaders['Content-Length'] = len;
+    const range = upRes.headers.get('content-range');
+    if (range) outHeaders['Content-Range'] = range;
+
+    res.writeHead(upRes.status, outHeaders);
+    if (req.method === 'HEAD' || !upRes.body) {
+      req.off('close', onClose);
+      res.end();
+      return;
+    }
+
+    const nodeStream = typeof upRes.body.pipe === 'function' ? upRes.body : Readable.fromWeb(upRes.body);
+    nodeStream.on('error', () => {
+      req.off('close', onClose);
+      if (!res.destroyed) res.destroy();
+    });
+    res.on('close', () => {
+      req.off('close', onClose);
+    });
+    nodeStream.pipe(res);
+  }
+
   stop() {
+    this.streamCache.clear();
+    this.inFlightResolves.clear();
     if (!this.server) return Promise.resolve();
     return new Promise((resolve) => {
       this.server.close(() => {

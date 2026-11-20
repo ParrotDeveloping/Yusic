@@ -8,77 +8,71 @@
 </head>
 <body>
   <div class="app-shell">
-    <!-- Left Sidebar -->
+    <!-- Left Sidebar (Spotify-inspired floating cards) -->
     <aside class="sidebar" aria-label="Yan menü">
-      <div class="brand">
-        <div class="brand-logo" aria-hidden="true">
-          <svg viewBox="0 0 64 64" width="32" height="32">
-            <defs>
-              <linearGradient id="yusicBg" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#3b1f75"/>
-                <stop offset="100%" stop-color="#7c3aed"/>
-              </linearGradient>
-              <linearGradient id="yusicAcc" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#ddd6fe"/>
-                <stop offset="100%" stop-color="#38bdf8"/>
-              </linearGradient>
-            </defs>
-            <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#yusicBg)"/>
-            <path d="M18 18 L32 34 L46 18 M32 34 L32 48" fill="none" stroke="url(#yusicAcc)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect x="13" y="37" width="4" height="10" rx="2" fill="#a78bfa"/>
-            <rect x="47" y="37" width="4" height="10" rx="2" fill="#38bdf8"/>
-          </svg>
+      <div class="sidebar-card sidebar-nav-card">
+        <div class="brand">
+          <div class="brand-logo" aria-hidden="true">
+            <svg viewBox="0 0 64 64" width="30" height="30">
+              <defs>
+                <linearGradient id="yusicBg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#14532d"/>
+                  <stop offset="100%" stop-color="#1db954"/>
+                </linearGradient>
+              </defs>
+              <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#yusicBg)"/>
+              <path d="M18 18 L32 34 L46 18 M32 34 L32 48" fill="none" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="13" y="37" width="4" height="10" rx="2" fill="#bbf7d0"/>
+              <rect x="47" y="37" width="4" height="10" rx="2" fill="#bbf7d0"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">Yusic</span>
+            <span class="brand-sub">Müzik &amp; Spotify Akış</span>
+          </div>
         </div>
-        <div class="brand-text">
-          <span class="brand-name">Yusic</span>
-          <span class="brand-sub">Müzik &amp; İndirici</span>
-        </div>
-      </div>
 
-      <nav class="nav-group" aria-label="Ana görünümler">
-        <button type="button" class="nav-item is-active" id="nav-all-music" data-view="library">
-          <span class="nav-icon" aria-hidden="true">♪</span>
-          <span class="nav-label">Tüm Müzikler</span>
-          <span class="nav-badge" id="badge-all-count">0</span>
-        </button>
-        <button type="button" class="nav-item" id="nav-downloader" data-view="downloader">
-          <span class="nav-icon" aria-hidden="true">⇩</span>
-          <span class="nav-label">İndirici</span>
-          <span class="nav-badge nav-badge--accent" id="badge-dl-active" hidden>0</span>
-        </button>
-      </nav>
-
-      <div class="folder-actions">
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-open-folder" title="Programın içindeki muzik klasörünü aç">
-          Müzik Klasörünü Aç
-        </button>
-        <div class="folder-actions-row">
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-rescan" title="Müzik klasörünü yeniden tara">
-            Yenile
+        <nav class="nav-group" aria-label="Ana görünümler">
+          <button type="button" class="nav-item is-active" id="nav-all-music" data-view="library">
+            <span class="nav-icon" aria-hidden="true">♪</span>
+            <span class="nav-label">Tüm Müzikler</span>
+            <span class="nav-badge" id="badge-all-count">0</span>
           </button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-pick-files" title="Bilgisayardan ses dosyası aktar">
-            Dosya Ekle
+          <button type="button" class="nav-item" id="nav-spotify" data-view="spotify">
+            <span class="nav-icon nav-icon--spotify" aria-hidden="true">●</span>
+            <span class="nav-label">Spotify</span>
+            <span class="nav-badge nav-badge--spotify" id="badge-spotify-status" hidden>Bağlı</span>
+          </button>
+          <button type="button" class="nav-item" id="nav-downloader" data-view="downloader">
+            <span class="nav-icon" aria-hidden="true">⇩</span>
+            <span class="nav-label">MP3 İndirici</span>
+            <span class="nav-badge nav-badge--accent" id="badge-dl-active" hidden>0</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sidebar-card sidebar-library-card">
+        <div class="library-card-head">
+          <span class="library-heading">Kitaplığın</span>
+          <div class="library-head-btns">
+            <button type="button" class="icon-btn" id="btn-new-playlist" title="Yeni Playlist Oluştur" aria-label="Yeni Playlist Oluştur">+</button>
+            <button type="button" class="icon-btn" id="btn-open-folder" title="Müzik Klasörünü Aç" aria-label="Müzik Klasörünü Aç">📁</button>
+            <button type="button" class="icon-btn" id="btn-rescan" title="Klasörü Yeniden Tara" aria-label="Yenile">↻</button>
+            <button type="button" class="icon-btn" id="btn-pick-files" title="Bilgisayardan Ses Dosyası Ekle" aria-label="Dosya Ekle">＋</button>
+          </div>
+        </div>
+
+        <div class="playlists-list scroller" id="sidebar-playlists" role="list">
+          <!-- Rendered dynamically: Spotify Liked/Playlists + Local Playlists -->
+        </div>
+
+        <div class="sidebar-footer">
+          <span class="app-version-label" id="app-version-label">Yusic v1.0.1</span>
+          <button type="button" class="btn btn-ghost btn-xs update-check-btn" id="btn-check-updates" title="GitHub üzerinden güncellemeleri kontrol et">
+            <span>Güncelleme Kontrol Et</span>
+            <span class="update-dot" id="update-dot" hidden aria-hidden="true"></span>
           </button>
         </div>
-      </div>
-
-      <div class="playlists-header">
-        <span class="section-heading">Playlistler</span>
-        <button type="button" class="icon-btn" id="btn-new-playlist" title="Yeni Playlist Oluştur" aria-label="Yeni Playlist Oluştur">
-          +
-        </button>
-      </div>
-
-      <div class="playlists-list scroller" id="sidebar-playlists" role="list">
-        <!-- Rendered dynamically -->
-      </div>
-
-      <div class="sidebar-footer">
-        <span class="app-version-label" id="app-version-label">Yusic v1.0.0</span>
-        <button type="button" class="btn btn-ghost btn-xs update-check-btn" id="btn-check-updates" title="GitHub üzerinden güncellemeleri kontrol et">
-          <span>Güncelleme Kontrol Et</span>
-          <span class="update-dot" id="update-dot" hidden aria-hidden="true"></span>
-        </button>
       </div>
     </aside>
 
@@ -102,43 +96,67 @@
       </div>
 
       <!-- Library / Playlist View -->
-      <section class="view view-library is-active" id="view-library" aria-label="Müzik Kütüphanesi">
-        <header class="view-header">
-          <div class="view-header-info">
-            <span class="view-eyebrow" id="view-eyebrow">KÜTÜPHANE</span>
-            <h1 class="view-title" id="view-title">Tüm Müzikler</h1>
-            <p class="view-meta" id="view-meta">0 şarkı • 0 dk</p>
+      <section class="view view-library is-active scroller" id="view-library" aria-label="Müzik Kütüphanesi">
+        <header class="hero-header" id="lib-hero">
+          <div class="hero-cover" id="lib-hero-cover">
+            <div class="hero-cover-art" id="lib-hero-cover-art">♪</div>
+            <button type="button" class="hero-cover-overlay" id="btn-hero-pick-cover" hidden>
+              <span>📷 Fotoğraf Seç</span>
+            </button>
           </div>
-          <div class="view-header-actions">
-            <button type="button" class="btn btn-primary" id="btn-play-all">
-              ▶ Tümünü Çal
-            </button>
-            <button type="button" class="btn btn-secondary" id="btn-shuffle-all">
-              🔀 Karışık Çal
-            </button>
+          <div class="hero-info">
+            <span class="hero-eyebrow" id="view-eyebrow">KÜTÜPHANE</span>
+            <h1 class="hero-title" id="view-title">Tüm Müzikler</h1>
+            <p class="hero-desc" id="view-desc" hidden></p>
+            <div class="hero-meta-row">
+              <span class="hero-meta" id="view-meta">0 şarkı • 0 dk</span>
+              <span class="speed-pill" id="playlist-speed-pill" hidden></span>
+            </div>
           </div>
         </header>
 
-        <div class="toolbar">
-          <div class="search-wrap">
-            <span class="search-icon" aria-hidden="true">⌕</span>
-            <input type="search" id="search-input" class="input-search" placeholder="Şarkı, sanatçı veya albüm ara..." aria-label="Müziklerde ara">
+        <div class="action-bar">
+          <div class="action-bar-left">
+            <button type="button" class="spotify-play-circle" id="btn-play-all" title="Tümünü Çal" aria-label="Tümünü Çal">
+              ▶
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-shuffle-all" title="Karışık Çal">
+              🔀 Karışık
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-playlist-speed" hidden>
+              ⚡ Liste Hızı
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-playlist-edit" hidden>
+              ✎ Düzenle
+            </button>
           </div>
-          <div class="sort-wrap" id="sort-wrap">
-            <label for="sort-select" class="sr-only">Sıralama</label>
-            <select id="sort-select" class="select-control">
-              <option value="title">İsim (A-Z)</option>
-              <option value="artist">Sanatçı (A-Z)</option>
-              <option value="recent">Eklenme (Yeni)</option>
-              <option value="duration">Süre (Uzun)</option>
-            </select>
+
+          <div class="action-bar-right">
+            <div class="search-wrap">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input type="search" id="search-input" class="input-search" placeholder="Şarkı, sanatçı veya albüm ara..." aria-label="Müziklerde ara">
+            </div>
+            <div class="view-mode-group" role="group" aria-label="Görünüm modu">
+              <button type="button" class="view-mode-btn is-active" id="btn-view-list" data-mode="list" title="Liste görünümü">Liste</button>
+              <button type="button" class="view-mode-btn" id="btn-view-compact" data-mode="compact" title="Kompakt görünüm">Kompakt</button>
+              <button type="button" class="view-mode-btn" id="btn-view-grid" data-mode="grid" title="Kart ızgarası görünümü">Izgara</button>
+            </div>
+            <div class="sort-wrap" id="sort-wrap">
+              <label for="sort-select" class="sr-only">Sıralama</label>
+              <select id="sort-select" class="select-control">
+                <option value="title">İsim (A-Z)</option>
+                <option value="artist">Sanatçı (A-Z)</option>
+                <option value="recent">Eklenme (Yeni)</option>
+                <option value="duration">Süre (Uzun)</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div class="track-list-wrap scroller" id="track-list-wrap">
+        <div class="track-list-wrap" id="track-list-wrap">
           <div class="track-table-head" id="track-table-head">
             <span class="col-idx">#</span>
-            <span class="col-title">Şarkı</span>
+            <span class="col-title">Başlık</span>
             <span class="col-album">Albüm / Klasör</span>
             <span class="col-dur">Süre</span>
             <span class="col-actions">İşlemler</span>
@@ -151,13 +169,149 @@
             <div class="empty-icon" aria-hidden="true">🎵</div>
             <h2 class="empty-title" id="empty-title">Müzik klasörün henüz boş</h2>
             <p class="empty-desc" id="empty-desc">
-              Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify/YouTube'dan indirebilirsin.
+              Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify/YouTube'dan dinleyip indirebilirsin.
             </p>
             <code class="path-pill" id="empty-muzik-path"></code>
             <div class="empty-buttons">
               <button type="button" class="btn btn-primary" id="btn-empty-open-folder">Müzik Klasörünü Aç</button>
-              <button type="button" class="btn btn-secondary" id="btn-empty-go-dl">Spotify / YouTube'dan İndir</button>
+              <button type="button" class="btn btn-secondary" id="btn-empty-go-spotify">Spotify'da Dinle</button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Spotify Live Streaming View -->
+      <section class="view view-spotify scroller" id="view-spotify" aria-label="Spotify Canlı Akış" hidden>
+        <div class="spotify-topbar">
+          <div class="spotify-public-form-wrap">
+            <form id="sp-public-form" class="sp-public-form">
+              <label for="sp-public-url" class="sr-only">Herkese açık Spotify şarkı, albüm veya playlist bağlantısı</label>
+              <input
+                type="url"
+                id="sp-public-url"
+                class="input-search input-search--plain"
+                placeholder="Herkese açık Spotify linki yapıştır — indirmeden anında dinle..."
+                autocomplete="off"
+                spellcheck="false"
+              >
+              <button type="submit" class="btn btn-primary btn-sm">İndirmeden Aç</button>
+            </form>
+          </div>
+          <div class="spotify-user-bar" id="sp-user-bar" hidden>
+            <img id="sp-user-avatar" class="sp-user-avatar" alt="" hidden>
+            <span class="sp-user-name" id="sp-user-name"></span>
+            <button type="button" class="btn btn-ghost btn-xs" id="btn-sp-refresh">Yenile</button>
+            <button type="button" class="btn btn-secondary btn-xs" id="btn-sp-logout">Çıkış</button>
+          </div>
+        </div>
+
+        <!-- Connect Account Card (shown when not logged in) -->
+        <div class="spotify-connect-card" id="sp-connect-card">
+          <div class="sp-connect-copy">
+            <span class="hero-eyebrow hero-eyebrow--green">SPOTIFY HESABINI BAĞLA</span>
+            <h2>Beğenilen Şarkılarını ve Listelerini İndirmeden Dinle</h2>
+            <p>
+              Kendi Spotify hesabını OAuth 2.0 (PKCE) ile güvenle bağlayarak <strong>Beğenilen Şarkılarını</strong>,
+              özel listelerini ve son dinlediklerini doğrudan Yusic içinden hız/ton ayarıyla çalabilirsin.
+            </p>
+            <ol class="sp-setup-steps">
+              <li>
+                <button type="button" class="btn btn-secondary btn-xs" id="btn-sp-dashboard">Spotify Developer Dashboard'u Aç</button>
+                <span>ve ücretsiz bir uygulama (App) oluştur.</span>
+              </li>
+              <li>
+                Redirect URI alanına şu adresi ekle:
+                <code class="inline-code" id="sp-redirect-uri-code">http://127.0.0.1:43821/callback</code>
+                <button type="button" class="btn btn-ghost btn-xs" id="btn-sp-copy-redirect">Kopyala</button>
+              </li>
+              <li>Oluşan <strong>Client ID</strong> değerini aşağıya yapıştır ve bağlan:</li>
+            </ol>
+            <form id="sp-login-form" class="sp-login-form">
+              <label for="sp-client-id-input" class="sr-only">Spotify Client ID</label>
+              <input
+                type="text"
+                id="sp-client-id-input"
+                class="text-input"
+                placeholder="Spotify Client ID (ör. 32 karakterli kimlik)"
+                autocomplete="off"
+                spellcheck="false"
+              >
+              <button type="submit" class="btn btn-primary" id="btn-sp-login">Spotify ile Bağlan</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Connected Spotify Sub-navigation -->
+        <div class="sp-subnav" id="sp-subnav" hidden>
+          <div class="sp-subtabs" role="tablist">
+            <button type="button" class="sp-tab is-active" data-sptab="liked">💜 Beğenilen Şarkılar</button>
+            <button type="button" class="sp-tab" data-sptab="playlists">Listelerim</button>
+            <button type="button" class="sp-tab" data-sptab="recent">Son Dinlenenler</button>
+            <button type="button" class="sp-tab" data-sptab="search">Spotify'da Ara</button>
+          </div>
+          <form id="sp-search-form" class="sp-search-form" hidden>
+            <label for="sp-search-input" class="sr-only">Spotify'da şarkı veya sanatçı ara</label>
+            <input type="search" id="sp-search-input" class="input-search input-search--plain" placeholder="Spotify kataloğunda ara...">
+            <button type="submit" class="btn btn-secondary btn-sm">Ara</button>
+          </form>
+        </div>
+
+        <!-- Spotify Playlists Grid (when Listelerim tab is active) -->
+        <div class="sp-playlists-grid" id="sp-playlists-grid" hidden></div>
+
+        <!-- Spotify Active Track Collection (Hero + Action Bar + List/Compact/Grid) -->
+        <div id="sp-collection-area" hidden>
+          <header class="hero-header hero-header--compact" id="sp-hero">
+            <div class="hero-cover" id="sp-hero-cover">
+              <div class="hero-cover-art" id="sp-hero-cover-art">♪</div>
+              <button type="button" class="hero-cover-overlay" id="btn-sp-hero-pick-cover">
+                <span>📷 Fotoğraf Seç</span>
+              </button>
+            </div>
+            <div class="hero-info">
+              <span class="hero-eyebrow hero-eyebrow--green" id="sp-hero-eyebrow">SPOTIFY AKIŞ</span>
+              <h1 class="hero-title" id="sp-hero-title">Beğenilen Şarkılar</h1>
+              <p class="hero-desc" id="sp-hero-desc" hidden></p>
+              <div class="hero-meta-row">
+                <span class="hero-meta" id="sp-hero-meta">0 şarkı</span>
+                <span class="speed-pill" id="sp-speed-pill" hidden></span>
+              </div>
+            </div>
+          </header>
+
+          <div class="action-bar">
+            <div class="action-bar-left">
+              <button type="button" class="spotify-play-circle" id="btn-sp-play-all" title="Tümünü Canlı Çal" aria-label="Tümünü Canlı Çal">
+                ▶
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-sp-shuffle-all">🔀 Karışık</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-list-speed">⚡ Liste Hızı</button>
+            </div>
+
+            <div class="action-bar-right">
+              <div class="search-wrap">
+                <span class="search-icon" aria-hidden="true">⌕</span>
+                <input type="search" id="sp-filter-input" class="input-search" placeholder="Bu listede filtrele..." aria-label="Spotify listesinde filtrele">
+              </div>
+              <div class="view-mode-group" role="group" aria-label="Spotify görünüm modu">
+                <button type="button" class="view-mode-btn is-active" id="btn-sp-view-list" data-mode="list">Liste</button>
+                <button type="button" class="view-mode-btn" id="btn-sp-view-compact" data-mode="compact">Kompakt</button>
+                <button type="button" class="view-mode-btn" id="btn-sp-view-grid" data-mode="grid">Izgara</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="track-table-head" id="sp-table-head">
+            <span class="col-idx">#</span>
+            <span class="col-title">Başlık</span>
+            <span class="col-album">Albüm</span>
+            <span class="col-dur">Süre</span>
+            <span class="col-actions">İşlemler</span>
+          </div>
+          <div class="track-list" id="sp-track-list" role="list"></div>
+
+          <div class="sp-load-more-wrap" id="sp-load-more-wrap" hidden>
+            <button type="button" class="btn btn-secondary" id="btn-sp-load-more">Daha Fazla Yükle</button>
           </div>
         </div>
       </section>
@@ -166,9 +320,9 @@
       <section class="view view-downloader scroller" id="view-downloader" aria-label="Spotify ve YouTube İndirici" hidden>
         <header class="view-header">
           <div class="view-header-info">
-            <span class="view-eyebrow">İNDİRİCİ</span>
+            <span class="hero-eyebrow hero-eyebrow--green">MP3 İNDİRİCİ</span>
             <h1 class="view-title">Spotify &amp; YouTube MP3 İndirici</h1>
-            <p class="view-meta">Tek şarkı veya tüm playlist linkini yapıştır; şarkılar otomatik olarak muzik klasörüne MP3 olarak kaydedilsin.</p>
+            <p class="view-meta">Çevrimdışı kaydetmek istediğin tek şarkı veya playlist linkini yapıştır; muzik klasörüne MP3 olarak insin.</p>
           </div>
         </header>
 
@@ -184,7 +338,7 @@
                 autocomplete="off"
                 spellcheck="false"
               >
-              <button type="submit" class="btn btn-primary btn-lg" id="btn-dl-start">İndir</button>
+              <button type="submit" class="btn btn-primary btn-lg" id="btn-dl-start">MP3 İndir</button>
             </div>
 
             <div class="dl-detect-row">
@@ -215,7 +369,7 @@
 
         <div class="dl-jobs" id="dl-jobs">
           <div class="empty-state empty-state--compact" id="dl-empty">
-            <p class="empty-desc">Henüz aktif veya tamamlanmış bir indirme yok. Spotify veya YouTube linki yapıştırıp <strong>İndir</strong>'e bas.</p>
+            <p class="empty-desc">Henüz aktif veya tamamlanmış bir indirme yok. Spotify veya YouTube linki yapıştırıp <strong>MP3 İndir</strong>'e bas.</p>
           </div>
         </div>
       </section>
@@ -291,6 +445,7 @@
           popovertarget="speed-popover"
           title="Çalma Hızı ve Ses Tonu Ayarları"
         >
+          <span class="speed-trigger-source" id="speed-trigger-source" hidden>Şarkı</span>
           <span class="speed-trigger-rate" id="speed-trigger-rate">1.00x</span>
           <span class="speed-trigger-pitch" id="speed-trigger-pitch">Sabit Ton</span>
         </button>
@@ -318,7 +473,7 @@
     <div class="speed-popover-head">
       <div>
         <h2 id="speed-popover-title" class="speed-popover-title">Hız ve Ses Tonu</h2>
-        <p class="speed-popover-sub">Anlık olarak aktif şarkıya uygulanır</p>
+        <p class="speed-popover-sub" id="speed-popover-source-desc">Genel çalma ayarı aktif</p>
       </div>
       <button type="button" class="btn btn-ghost btn-xs" id="btn-speed-reset">1.0x Sıfırla</button>
     </div>
@@ -363,6 +518,12 @@
         Şarkı hızlansa veya yavaşlasa bile ses tonu orijinal kalır.
       </p>
     </fieldset>
+
+    <div class="speed-scope-actions">
+      <button type="button" class="btn btn-secondary btn-xs" id="btn-save-track-speed" disabled>Bu Şarkıya Özel Yap</button>
+      <button type="button" class="btn btn-secondary btn-xs" id="btn-save-list-speed" disabled>Bu Listeye Özel Yap</button>
+      <button type="button" class="btn btn-ghost btn-xs" id="btn-clear-active-override" hidden>Özel Hızı Kaldır</button>
+    </div>
   </div>
 
   <!-- Drag & Drop Overlay -->
@@ -370,7 +531,7 @@
     <div class="drop-overlay-card">
       <div class="drop-overlay-icon" aria-hidden="true">⇩</div>
       <h2>Ses Dosyalarını Buraya Bırak</h2>
-      <p>Dosyalar programın içindeki <code>muzik</code> klasörüne kopyalanacak ve otomatik eklenecek.</p>
+      <p>Dosyalar müzik klasörüne kopyalanacak ve otomatik eklenecek.</p>
     </div>
   </div>
 
@@ -388,6 +549,86 @@
       <div class="dialog-footer">
         <button type="submit" value="cancel" class="btn btn-secondary" formnovalidate>Vazgeç</button>
         <button type="submit" value="confirm" class="btn btn-primary" id="playlist-dialog-submit">Oluştur</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="playlist-edit-dialog" class="yusic-dialog yusic-dialog--wide" closedby="any" aria-labelledby="pl-edit-title">
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="pl-edit-title">Ayrıntıları Düzenle</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body pl-edit-body">
+        <div class="pl-edit-cover-col">
+          <div class="pl-edit-cover-preview" id="pl-edit-cover-preview">♪</div>
+          <div class="pl-edit-cover-btns">
+            <button type="button" class="btn btn-secondary btn-xs" id="btn-pl-edit-pick-cover">Fotoğraf Seç</button>
+            <button type="button" class="btn btn-ghost btn-xs" id="btn-pl-edit-clear-cover">Kaldır</button>
+          </div>
+        </div>
+        <div class="pl-edit-fields">
+          <label for="pl-edit-name" class="field-label">Liste Adı</label>
+          <input type="text" id="pl-edit-name" class="text-input" maxlength="80" autofocus required>
+          <label for="pl-edit-desc" class="field-label field-label--spaced">Açıklama</label>
+          <textarea id="pl-edit-desc" class="text-input text-area" rows="3" maxlength="240" placeholder="İsteğe bağlı açıklama ekle..."></textarea>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="cancel" class="btn btn-secondary" formnovalidate>Vazgeç</button>
+        <button type="submit" value="confirm" class="btn btn-primary">Kaydet</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="speed-override-dialog" class="yusic-dialog" closedby="any" aria-labelledby="spd-ov-title">
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="spd-ov-title">Özel Hız Ayarı</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-subtitle" id="spd-ov-target"></p>
+        <div class="speed-readout-row">
+          <label for="spd-ov-slider" class="speed-label">Çalma Hızı</label>
+          <span class="speed-value-badge" id="spd-ov-label">1.00x</span>
+        </div>
+        <input type="range" id="spd-ov-slider" class="yusic-slider" min="0.25" max="2.5" step="0.05" value="1" aria-valuetext="1.00x">
+        <div class="speed-presets" id="spd-ov-presets">
+          <button type="button" class="preset-chip" data-speed="0.75">0.75x</button>
+          <button type="button" class="preset-chip" data-speed="0.85">0.85x</button>
+          <button type="button" class="preset-chip" data-speed="1">1.0x</button>
+          <button type="button" class="preset-chip" data-speed="1.25">1.25x</button>
+          <button type="button" class="preset-chip" data-speed="1.5">1.5x</button>
+          <button type="button" class="preset-chip" data-speed="1.75">1.75x</button>
+          <button type="button" class="preset-chip" data-speed="2">2.0x</button>
+          <button type="button" class="preset-chip" data-speed="2.25">2.25x</button>
+        </div>
+
+        <fieldset class="pitch-fieldset pitch-fieldset--modal">
+          <legend class="speed-label">Ses Tonu</legend>
+          <div class="pitch-segmented">
+            <label class="pitch-option">
+              <input type="radio" name="ov-pitch-mode" id="ov-pitch-preserve" value="preserve" checked>
+              <span class="pitch-card">
+                <strong>Sesi Koru</strong>
+                <small>Sabit ton</small>
+              </span>
+            </label>
+            <label class="pitch-option">
+              <input type="radio" name="ov-pitch-mode" id="ov-pitch-change" value="change">
+              <span class="pitch-card">
+                <strong>Sesi Değiştir</strong>
+                <small>Nightcore / Slowed</small>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="clear" class="btn btn-ghost" formnovalidate>Özel Hızı Kaldır</button>
+        <button type="submit" value="cancel" class="btn btn-secondary" formnovalidate>Vazgeç</button>
+        <button type="submit" value="confirm" class="btn btn-primary" autofocus>Kaydet</button>
       </div>
     </form>
   </dialog>
@@ -439,7 +680,7 @@
         <div class="update-version-grid">
           <div class="update-ver-box">
             <span class="field-label">Mevcut Sürüm</span>
-            <strong id="update-cur-ver">v1.0.0</strong>
+            <strong id="update-cur-ver">v1.0.1</strong>
           </div>
           <div class="update-ver-box">
             <span class="field-label">GitHub Son Sürüm</span>

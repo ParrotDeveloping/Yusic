@@ -1,62 +1,21 @@
 import { EventEmitter } from 'node:events';
+import {
+  normalizeVersion,
+  compareSemver,
+  isNewerVersion,
+  formatReleaseNotes
+} from './versionUtils.js';
+
+export { normalizeVersion, compareSemver, isNewerVersion, formatReleaseNotes };
 
 export const GITHUB_OWNER = 'ParrotDeveloping';
 export const GITHUB_REPO = 'Yusic';
 export const RELEASES_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
 const LATEST_API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 
-export function compareSemver(a, b) {
-  const parse = (v) => {
-    const clean = String(v || '')
-      .trim()
-      .replace(/^v/i, '')
-      .split('-')[0];
-    const parts = clean.split('.').map((n) => Number.parseInt(n, 10) || 0);
-    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
-  };
-  const pa = parse(a);
-  const pb = parse(b);
-  for (let i = 0; i < 3; i++) {
-    if (pa[i] > pb[i]) return 1;
-    if (pa[i] < pb[i]) return -1;
-  }
-  return 0;
-}
-
-function stripHtmlTags(html) {
-  return String(html || '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(?:p|div|li|h[1-6])>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '• ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-export function formatReleaseNotes(raw) {
-  if (!raw) return '';
-  if (Array.isArray(raw)) {
-    return raw
-      .map((entry) => {
-        const ver = entry?.version ? `v${String(entry.version).replace(/^v/i, '')}` : '';
-        const body = stripHtmlTags(entry?.note || '');
-        return ver ? `${ver}\n${body}` : body;
-      })
-      .filter(Boolean)
-      .join('\n\n')
-      .trim();
-  }
-  return stripHtmlTags(raw);
-}
-
 export class UpdateManager extends EventEmitter {
   constructor({
-    currentVersion = '1.0.0',
+    currentVersion = '1.0.1',
     isPackaged = false,
     openExternalFn = null,
     autoUpdaterImpl = null,
@@ -71,7 +30,7 @@ export class UpdateManager extends EventEmitter {
     this._auWired = false;
 
     this.state = {
-      currentVersion: String(currentVersion || '1.0.0').replace(/^v/i, ''),
+      currentVersion: normalizeVersion(currentVersion) || '1.0.1',
       isPackaged: this.isPackaged,
       status: 'idle',
       latestVersion: null,
@@ -128,13 +87,27 @@ export class UpdateManager extends EventEmitter {
     });
 
     au.on('update-available', (info) => {
-      const ver = String(info?.version || '').replace(/^v/i, '');
+      const ver = normalizeVersion(info?.version);
+      if (!isNewerVersion(ver, this.state.currentVersion)) {
+        this._patchState({
+          status: 'not-available',
+          latestVersion: this.state.currentVersion,
+          releaseName: null,
+          releaseNotes: '',
+          downloadUrl: null,
+          progress: 0,
+          error: null,
+          lastCheckedAt: Date.now()
+        });
+        return;
+      }
+
       this._patchState({
         status: 'available',
-        latestVersion: ver || null,
-        releaseName: info?.releaseName || (ver ? `Yusic v${ver}` : null),
+        latestVersion: ver,
+        releaseName: info?.releaseName || `Yusic v${ver}`,
         releaseNotes: formatReleaseNotes(info?.releaseNotes),
-        releaseUrl: ver ? `${RELEASES_URL}/tag/v${ver}` : RELEASES_URL,
+        releaseUrl: `${RELEASES_URL}/tag/v${ver}`,
         progress: 0,
         error: null,
         lastCheckedAt: Date.now()
@@ -142,11 +115,13 @@ export class UpdateManager extends EventEmitter {
     });
 
     au.on('update-not-available', (info) => {
-      const ver = info?.version ? String(info.version).replace(/^v/i, '') : this.state.currentVersion;
+      const ver = normalizeVersion(info?.version) || this.state.currentVersion;
       this._patchState({
         status: 'not-available',
         latestVersion: ver,
-        releaseNotes: formatReleaseNotes(info?.releaseNotes),
+        releaseNotes: '',
+        downloadUrl: null,
+        progress: 0,
         error: null,
         lastCheckedAt: Date.now()
       });
@@ -163,7 +138,17 @@ export class UpdateManager extends EventEmitter {
     });
 
     au.on('update-downloaded', (info) => {
-      const ver = info?.version ? String(info.version).replace(/^v/i, '') : this.state.latestVersion;
+      const ver = normalizeVersion(info?.version) || this.state.latestVersion;
+      if (!isNewerVersion(ver, this.state.currentVersion)) {
+        this._patchState({
+          status: 'not-available',
+          latestVersion: this.state.currentVersion,
+          downloadUrl: null,
+          progress: 0,
+          error: null
+        });
+        return;
+      }
       this._patchState({
         status: 'downloaded',
         latestVersion: ver,
@@ -241,16 +226,29 @@ export class UpdateManager extends EventEmitter {
       }
 
       const data = await res.json();
-      const latestVersion = String(data?.tag_name || '').replace(/^v/i, '');
+      const latestVersion = normalizeVersion(data?.tag_name);
       const setupAsset = Array.isArray(data?.assets)
         ? data.assets.find((a) => String(a?.name || '').toLowerCase().endsWith('.exe'))
         : null;
-      const isNewer = latestVersion && compareSemver(latestVersion, this.state.currentVersion) > 0;
+      const isNewer = isNewerVersion(latestVersion, this.state.currentVersion);
+
+      if (!isNewer) {
+        return this._patchState({
+          status: 'not-available',
+          latestVersion: latestVersion || this.state.currentVersion,
+          releaseName: null,
+          releaseNotes: '',
+          releaseUrl: data?.html_url || RELEASES_URL,
+          downloadUrl: null,
+          error: null,
+          lastCheckedAt: Date.now()
+        });
+      }
 
       return this._patchState({
-        status: isNewer ? 'available' : 'not-available',
-        latestVersion: latestVersion || this.state.currentVersion,
-        releaseName: data?.name || (latestVersion ? `Yusic v${latestVersion}` : null),
+        status: 'available',
+        latestVersion,
+        releaseName: data?.name || `Yusic v${latestVersion}`,
         releaseNotes: formatReleaseNotes(data?.body || ''),
         releaseUrl: data?.html_url || RELEASES_URL,
         downloadUrl: setupAsset?.browser_download_url || data?.html_url || RELEASES_URL,
@@ -266,19 +264,25 @@ export class UpdateManager extends EventEmitter {
   }
 
   async downloadUpdate() {
+    if (this.state.status === 'downloaded') {
+      return { alreadyDownloaded: true, state: this.getState() };
+    }
+    if (this.state.status === 'downloading') {
+      return { alreadyDownloading: true, state: this.getState() };
+    }
+    if (
+      this.state.status !== 'available' ||
+      !isNewerVersion(this.state.latestVersion, this.state.currentVersion)
+    ) {
+      return { skipped: true, reason: 'already-up-to-date', state: this.getState() };
+    }
+
     if (!this.isPackaged) {
       const target = this.state.downloadUrl || this.state.releaseUrl || RELEASES_URL;
       if (this.openExternalFn) {
         await this.openExternalFn(target);
       }
       return { openedExternal: true, url: target, state: this.getState() };
-    }
-
-    if (this.state.status === 'downloaded') {
-      return { alreadyDownloaded: true, state: this.getState() };
-    }
-    if (this.state.status === 'downloading') {
-      return { alreadyDownloading: true, state: this.getState() };
     }
 
     this._patchState({ status: 'downloading', progress: 0, error: null });

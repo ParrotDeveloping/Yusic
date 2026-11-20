@@ -4,7 +4,8 @@ import {
   clampSpeed,
   createShuffledQueue,
   getNextIndex,
-  getPrevIndex
+  getPrevIndex,
+  resolveEffectiveSpeed
 } from '../src/main/playbackLogic.js';
 
 test('clampSpeed constrains range and rounds cleanly', () => {
@@ -37,4 +38,25 @@ test('getPrevIndex restarts after 3s and wraps only on repeat all', () => {
   assert.equal(getPrevIndex(3, 2, 'off', 1), 1);
   assert.equal(getPrevIndex(3, 0, 'off', 1), 0);
   assert.equal(getPrevIndex(3, 0, 'all', 1), 2);
+});
+
+test('resolveEffectiveSpeed follows track > playlist > global precedence', () => {
+  const globalSettings = { speed: 1.0, preservePitch: true };
+  const playlistOverride = { speed: 1.25, preservePitch: false };
+  const trackOverride = { speed: 1.75, preservePitch: true };
+
+  assert.deepEqual(
+    resolveEffectiveSpeed({ trackOverride, playlistOverride, globalSettings }),
+    { speed: 1.75, preservePitch: true, source: 'track' }
+  );
+
+  assert.deepEqual(
+    resolveEffectiveSpeed({ trackOverride: null, playlistOverride, globalSettings }),
+    { speed: 1.25, preservePitch: false, source: 'playlist' }
+  );
+
+  assert.deepEqual(
+    resolveEffectiveSpeed({ trackOverride: null, playlistOverride: null, globalSettings }),
+    { speed: 1.0, preservePitch: true, source: 'global' }
+  );
 });

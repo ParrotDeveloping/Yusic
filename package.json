@@ -1,6 +1,6 @@
 {
   "name": "yusic",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Yusic - Masaüstü Müzik Çalar ve İndirici",
   "type": "module",
   "main": "src/main/main.js",

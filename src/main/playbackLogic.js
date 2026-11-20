@@ -59,3 +59,25 @@ export function getPrevIndex(queueLen, currentIndex, repeatMode = 'off', current
 
   return 0;
 }
+
+export function resolveEffectiveSpeed({ trackOverride = null, playlistOverride = null, globalSettings = null } = {}) {
+  if (trackOverride && typeof trackOverride === 'object' && Number.isFinite(Number(trackOverride.speed))) {
+    return {
+      speed: clampSpeed(trackOverride.speed),
+      preservePitch: trackOverride.preservePitch !== undefined ? Boolean(trackOverride.preservePitch) : true,
+      source: 'track'
+    };
+  }
+  if (playlistOverride && typeof playlistOverride === 'object' && Number.isFinite(Number(playlistOverride.speed))) {
+    return {
+      speed: clampSpeed(playlistOverride.speed),
+      preservePitch: playlistOverride.preservePitch !== undefined ? Boolean(playlistOverride.preservePitch) : true,
+      source: 'playlist'
+    };
+  }
+  return {
+    speed: clampSpeed(globalSettings?.speed),
+    preservePitch: globalSettings?.preservePitch !== undefined ? Boolean(globalSettings.preservePitch) : true,
+    source: 'global'
+  };
+}

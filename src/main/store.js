@@ -3,6 +3,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { clampSpeed } from './playbackLogic.js';
 
+const VIEW_MODES = new Set(['list', 'compact', 'grid']);
+
 const DEFAULT_SETTINGS = Object.freeze({
   volume: 0.85,
   muted: false,
@@ -11,14 +13,40 @@ const DEFAULT_SETTINGS = Object.freeze({
   shuffle: false,
   repeatMode: 'off',
   autoCreatePlaylistOnDownload: true,
-  downloadYoutubePlaylistOnWatch: true
+  downloadYoutubePlaylistOnWatch: true,
+  libraryViewMode: 'list'
 });
+
+const DEFAULT_SPOTIFY_AUTH = Object.freeze({
+  clientId: '',
+  accessToken: '',
+  refreshToken: '',
+  expiresAt: 0,
+  user: null
+});
+
+export function sanitizeSpeedOverride(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const num = Number(raw.speed);
+  if (!Number.isFinite(num)) return null;
+  return {
+    speed: clampSpeed(num),
+    preservePitch: raw.preservePitch !== undefined ? Boolean(raw.preservePitch) : true
+  };
+}
+
+function sanitizeViewMode(mode, fallback = 'list') {
+  return VIEW_MODES.has(mode) ? mode : fallback;
+}
 
 function createEmptyDb() {
   return {
     version: 1,
     playlists: [],
     settings: { ...DEFAULT_SETTINGS },
+    trackSpeedOverrides: {},
+    externalListPrefs: {},
+    spotifyAuth: { ...DEFAULT_SPOTIFY_AUTH },
     metaCache: {}
   };
 }
@@ -38,17 +66,57 @@ export class YusicStore {
       }
       const raw = fs.readFileSync(this.dbPath, 'utf8');
       const parsed = JSON.parse(raw);
+
+      const rawOverrides =
+        parsed?.trackSpeedOverrides && typeof parsed.trackSpeedOverrides === 'object'
+          ? parsed.trackSpeedOverrides
+          : {};
+      const trackSpeedOverrides = {};
+      for (const [k, v] of Object.entries(rawOverrides)) {
+        const clean = sanitizeSpeedOverride(v);
+        if (clean) trackSpeedOverrides[String(k)] = clean;
+      }
+
+      const rawExtPrefs =
+        parsed?.externalListPrefs && typeof parsed.externalListPrefs === 'object'
+          ? parsed.externalListPrefs
+          : {};
+      const externalListPrefs = {};
+      for (const [k, v] of Object.entries(rawExtPrefs)) {
+        if (!v || typeof v !== 'object') continue;
+        externalListPrefs[String(k)] = {
+          speedOverride: sanitizeSpeedOverride(v.speedOverride),
+          viewMode: sanitizeViewMode(v.viewMode, 'list'),
+          coverFile: v.coverFile ? String(v.coverFile) : null
+        };
+      }
+
+      const rawAuth = parsed?.spotifyAuth && typeof parsed.spotifyAuth === 'object' ? parsed.spotifyAuth : {};
+
       this.data = {
         version: 1,
         playlists: Array.isArray(parsed?.playlists)
           ? parsed.playlists.map((p) => ({
               id: String(p.id || `pl_${crypto.randomBytes(6).toString('hex')}`),
               name: String(p.name || 'Adsız Playlist'),
+              description: String(p.description || ''),
+              coverFile: p.coverFile ? String(p.coverFile) : null,
+              viewMode: sanitizeViewMode(p.viewMode, 'list'),
+              speedOverride: sanitizeSpeedOverride(p.speedOverride),
               createdAt: Number(p.createdAt) || Date.now(),
               trackIds: Array.isArray(p.trackIds) ? [...new Set(p.trackIds.map(String))] : []
             }))
           : [],
         settings: this._sanitizeSettings({ ...DEFAULT_SETTINGS, ...(parsed?.settings || {}) }),
+        trackSpeedOverrides,
+        externalListPrefs,
+        spotifyAuth: {
+          clientId: String(rawAuth.clientId || ''),
+          accessToken: String(rawAuth.accessToken || ''),
+          refreshToken: String(rawAuth.refreshToken || ''),
+          expiresAt: Number(rawAuth.expiresAt) || 0,
+          user: rawAuth.user && typeof rawAuth.user === 'object' ? { ...rawAuth.user } : null
+        },
         metaCache: parsed?.metaCache && typeof parsed.metaCache === 'object' ? { ...parsed.metaCache } : {}
       };
     } catch {
@@ -88,12 +156,21 @@ export class YusicStore {
       downloadYoutubePlaylistOnWatch:
         next.downloadYoutubePlaylistOnWatch !== undefined
           ? Boolean(next.downloadYoutubePlaylistOnWatch)
-          : true
+          : true,
+      libraryViewMode: sanitizeViewMode(next.libraryViewMode, 'list')
+    };
+  }
+
+  _clonePlaylist(p) {
+    return {
+      ...p,
+      speedOverride: p.speedOverride ? { ...p.speedOverride } : null,
+      trackIds: [...p.trackIds]
     };
   }
 
   getPlaylists() {
-    return this.data.playlists.map((p) => ({ ...p, trackIds: [...p.trackIds] }));
+    return this.data.playlists.map((p) => this._clonePlaylist(p));
   }
 
   createPlaylist(name) {
@@ -101,12 +178,16 @@ export class YusicStore {
     const playlist = {
       id: `pl_${crypto.randomBytes(6).toString('hex')}`,
       name: clean,
+      description: '',
+      coverFile: null,
+      viewMode: 'list',
+      speedOverride: null,
       createdAt: Date.now(),
       trackIds: []
     };
     this.data.playlists.push(playlist);
     this.save();
-    return { ...playlist, trackIds: [] };
+    return this._clonePlaylist(playlist);
   }
 
   renamePlaylist(id, name) {
@@ -116,7 +197,30 @@ export class YusicStore {
     if (!pl) return null;
     pl.name = clean;
     this.save();
-    return { ...pl, trackIds: [...pl.trackIds] };
+    return this._clonePlaylist(pl);
+  }
+
+  updatePlaylistDetails(id, patch = {}) {
+    const pl = this.data.playlists.find((p) => p.id === id);
+    if (!pl) return null;
+    if (patch.name !== undefined) {
+      const cleanName = String(patch.name || '').trim();
+      if (cleanName) pl.name = cleanName;
+    }
+    if (patch.description !== undefined) {
+      pl.description = String(patch.description || '').trim();
+    }
+    if ('coverFile' in patch) {
+      pl.coverFile = patch.coverFile ? String(patch.coverFile) : null;
+    }
+    if (patch.viewMode !== undefined) {
+      pl.viewMode = sanitizeViewMode(patch.viewMode, pl.viewMode || 'list');
+    }
+    if ('speedOverride' in patch) {
+      pl.speedOverride = sanitizeSpeedOverride(patch.speedOverride);
+    }
+    this.save();
+    return this._clonePlaylist(pl);
   }
 
   deletePlaylist(id) {
@@ -139,7 +243,7 @@ export class YusicStore {
       }
     }
     this.save();
-    return { ...pl, trackIds: [...pl.trackIds] };
+    return this._clonePlaylist(pl);
   }
 
   removeTrackFromPlaylist(playlistId, trackId) {
@@ -147,7 +251,7 @@ export class YusicStore {
     if (!pl) return null;
     pl.trackIds = pl.trackIds.filter((id) => id !== trackId);
     this.save();
-    return { ...pl, trackIds: [...pl.trackIds] };
+    return this._clonePlaylist(pl);
   }
 
   removeTrackFromAllPlaylists(trackId) {
@@ -183,7 +287,7 @@ export class YusicStore {
     }
     pl.trackIds = nextOrder;
     this.save();
-    return { ...pl, trackIds: [...pl.trackIds] };
+    return this._clonePlaylist(pl);
   }
 
   findOrCreatePlaylistByName(name) {
@@ -191,8 +295,96 @@ export class YusicStore {
     const existing = this.data.playlists.find(
       (p) => p.name.localeCompare(clean, 'tr', { sensitivity: 'base' }) === 0
     );
-    if (existing) return { ...existing, trackIds: [...existing.trackIds] };
+    if (existing) return this._clonePlaylist(existing);
     return this.createPlaylist(clean);
+  }
+
+  getTrackSpeedOverrides() {
+    const out = {};
+    for (const [k, v] of Object.entries(this.data.trackSpeedOverrides)) {
+      out[k] = { ...v };
+    }
+    return out;
+  }
+
+  setTrackSpeedOverride(trackId, overrideOrNull) {
+    const key = String(trackId || '').trim();
+    if (!key) return this.getTrackSpeedOverrides();
+    const clean = sanitizeSpeedOverride(overrideOrNull);
+    if (clean) {
+      this.data.trackSpeedOverrides[key] = clean;
+    } else {
+      delete this.data.trackSpeedOverrides[key];
+    }
+    this.save();
+    return this.getTrackSpeedOverrides();
+  }
+
+  getExternalListPrefs() {
+    const out = {};
+    for (const [k, v] of Object.entries(this.data.externalListPrefs)) {
+      out[k] = {
+        speedOverride: v.speedOverride ? { ...v.speedOverride } : null,
+        viewMode: v.viewMode || 'list',
+        coverFile: v.coverFile || null
+      };
+    }
+    return out;
+  }
+
+  updateExternalListPref(listId, patch = {}) {
+    const key = String(listId || '').trim();
+    if (!key) return this.getExternalListPrefs();
+    const prev = this.data.externalListPrefs[key] || {
+      speedOverride: null,
+      viewMode: 'list',
+      coverFile: null
+    };
+    const next = { ...prev };
+    if ('speedOverride' in patch) {
+      next.speedOverride = sanitizeSpeedOverride(patch.speedOverride);
+    }
+    if (patch.viewMode !== undefined) {
+      next.viewMode = sanitizeViewMode(patch.viewMode, prev.viewMode || 'list');
+    }
+    if ('coverFile' in patch) {
+      next.coverFile = patch.coverFile ? String(patch.coverFile) : null;
+    }
+    this.data.externalListPrefs[key] = next;
+    this.save();
+    return this.getExternalListPrefs();
+  }
+
+  getSpotifyAuth() {
+    return {
+      ...this.data.spotifyAuth,
+      user: this.data.spotifyAuth.user ? { ...this.data.spotifyAuth.user } : null
+    };
+  }
+
+  setSpotifyAuth(patch = {}) {
+    const prev = this.data.spotifyAuth;
+    this.data.spotifyAuth = {
+      clientId: patch.clientId !== undefined ? String(patch.clientId).trim() : prev.clientId,
+      accessToken: patch.accessToken !== undefined ? String(patch.accessToken) : prev.accessToken,
+      refreshToken: patch.refreshToken !== undefined ? String(patch.refreshToken) : prev.refreshToken,
+      expiresAt: patch.expiresAt !== undefined ? Number(patch.expiresAt) || 0 : prev.expiresAt,
+      user: patch.user !== undefined ? (patch.user ? { ...patch.user } : null) : prev.user
+    };
+    this.save();
+    return this.getSpotifyAuth();
+  }
+
+  clearSpotifyTokens() {
+    this.data.spotifyAuth = {
+      clientId: this.data.spotifyAuth.clientId || '',
+      accessToken: '',
+      refreshToken: '',
+      expiresAt: 0,
+      user: null
+    };
+    this.save();
+    return this.getSpotifyAuth();
   }
 
   getSettings() {

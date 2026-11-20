@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import {
@@ -14,6 +15,7 @@ import { LibraryManager } from './library.js';
 import { StreamServer } from './streamServer.js';
 import { DownloadManager } from './downloader.js';
 import { detectMediaUrl } from './spotifyResolver.js';
+import { SpotifyAccountManager } from './spotifyAccount.js';
 import { UpdateManager } from './updater.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,6 +26,7 @@ let store = null;
 let library = null;
 let streamServer = null;
 let downloader = null;
+let spotifyAccount = null;
 let updater = null;
 let serverInfo = null;
 let toolsStatus = null;
@@ -74,7 +77,9 @@ async function initBackend() {
   streamServer = new StreamServer({
     library,
     coversDir: paths.coversDir,
-    ffmpegPath: toolsStatus.ffmpegPath
+    ffmpegPath: toolsStatus.ffmpegPath,
+    ytDlpPath: toolsStatus.ytDlpPath,
+    nodePath: toolsStatus.nodePath
   });
   serverInfo = await streamServer.start();
 
@@ -87,6 +92,11 @@ async function initBackend() {
     ffmpegPath: toolsStatus.ffmpegPath,
     ffmpegDir: toolsStatus.ffmpegDir,
     nodePath: toolsStatus.nodePath
+  });
+
+  spotifyAccount = new SpotifyAccountManager({
+    store,
+    openExternalFn: (url) => shell.openExternal(url)
   });
 
   updater = new UpdateManager({
@@ -107,6 +117,10 @@ async function initBackend() {
     broadcast('yusic:event:playlistsUpdated', playlists);
   });
 
+  spotifyAccount.on('auth-changed', (status) => {
+    broadcast('yusic:event:spotifyAuthChanged', status);
+  });
+
   updater.on('state', (updateState) => {
     broadcast('yusic:event:updateState', updateState);
   });
@@ -124,6 +138,9 @@ function registerIpc() {
       tracks: library.getTracks(),
       playlists: store.getPlaylists(),
       settings: store.getSettings(),
+      trackSpeedOverrides: store.getTrackSpeedOverrides(),
+      externalListPrefs: store.getExternalListPrefs(),
+      spotifyAuth: spotifyAccount.getStatus(),
       downloads: downloader.listJobs(),
       toolsStatus,
       updateState: updater.getState()
@@ -131,8 +148,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('yusic:library:scan', async () => {
-    const tracks = await library.scanAll(true);
-    return tracks;
+    return library.scanAll(true);
   });
 
   ipcMain.handle('yusic:library:openFolder', async () => {
@@ -169,6 +185,7 @@ function registerIpc() {
     return ok;
   });
 
+  // Playlists
   ipcMain.handle('yusic:playlists:create', (_event, name) => {
     const pl = store.createPlaylist(name);
     broadcast('yusic:event:playlistsUpdated', store.getPlaylists());
@@ -179,6 +196,48 @@ function registerIpc() {
     const pl = store.renamePlaylist(id, name);
     broadcast('yusic:event:playlistsUpdated', store.getPlaylists());
     return pl;
+  });
+
+  ipcMain.handle('yusic:playlists:updateDetails', (_event, { id, patch }) => {
+    const pl = store.updatePlaylistDetails(id, patch);
+    broadcast('yusic:event:playlistsUpdated', store.getPlaylists());
+    return pl;
+  });
+
+  ipcMain.handle('yusic:playlists:pickCover', async (_event, { playlistId, isExternal = false }) => {
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Playlist Kapak Fotoğrafı Seç',
+      properties: ['openFile'],
+      filters: [
+        {
+          name: 'Görseller',
+          extensions: ['png', 'jpg', 'jpeg', 'webp']
+        }
+      ]
+    });
+    if (res.canceled || res.filePaths.length === 0) return { canceled: true };
+
+    const srcPath = res.filePaths[0];
+    const buf = await fs.promises.readFile(srcPath);
+    const hash = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 16);
+    const rawExt = path.extname(srcPath).toLowerCase();
+    const ext = ['.png', '.jpg', '.jpeg', '.webp'].includes(rawExt) ? rawExt : '.jpg';
+    const fileName = `pl_${hash}${ext}`;
+    const coversDir = getRuntimePaths().coversDir;
+    fs.mkdirSync(coversDir, { recursive: true });
+    const dest = path.join(coversDir, fileName);
+    if (!fs.existsSync(dest)) {
+      await fs.promises.writeFile(dest, buf);
+    }
+
+    if (isExternal) {
+      const prefs = store.updateExternalListPref(playlistId, { coverFile: fileName });
+      return { canceled: false, coverFile: fileName, externalListPrefs: prefs };
+    }
+
+    const updated = store.updatePlaylistDetails(playlistId, { coverFile: fileName });
+    broadcast('yusic:event:playlistsUpdated', store.getPlaylists());
+    return { canceled: false, coverFile: fileName, playlist: updated };
   });
 
   ipcMain.handle('yusic:playlists:delete', (_event, id) => {
@@ -205,29 +264,48 @@ function registerIpc() {
     return pl;
   });
 
+  // Settings & Speed Overrides
   ipcMain.handle('yusic:settings:update', (_event, patch) => {
     return store.updateSettings(patch);
   });
 
-  ipcMain.handle('yusic:downloads:detect', (_event, url) => {
-    return detectMediaUrl(url);
+  ipcMain.handle('yusic:speed:setTrackOverride', (_event, { trackId, override }) => {
+    return store.setTrackSpeedOverride(trackId, override);
   });
 
-  ipcMain.handle('yusic:downloads:start', (_event, { url, options }) => {
-    return downloader.enqueue(url, options);
+  ipcMain.handle('yusic:externalList:updatePref', (_event, { listId, patch }) => {
+    return store.updateExternalListPref(listId, patch);
   });
 
-  ipcMain.handle('yusic:downloads:cancel', (_event, jobId) => {
-    return downloader.cancelJob(jobId);
+  // Spotify Account & Live Streaming
+  ipcMain.handle('yusic:spotify:getStatus', () => spotifyAccount.getStatus());
+  ipcMain.handle('yusic:spotify:saveClientId', (_event, clientId) => spotifyAccount.setClientId(clientId));
+  ipcMain.handle('yusic:spotify:login', (_event, clientId) => spotifyAccount.startLogin(clientId));
+  ipcMain.handle('yusic:spotify:logout', () => spotifyAccount.logout());
+  ipcMain.handle('yusic:spotify:openDashboard', () =>
+    shell.openExternal('https://developer.spotify.com/dashboard')
+  );
+  ipcMain.handle('yusic:spotify:liked', (_event, opts) => spotifyAccount.getLikedSongs(opts));
+  ipcMain.handle('yusic:spotify:playlists', (_event, opts) => spotifyAccount.getUserPlaylists(opts));
+  ipcMain.handle('yusic:spotify:playlistTracks', (_event, { spotifyPlaylistId, offset, limit }) =>
+    spotifyAccount.getPlaylistTracks(spotifyPlaylistId, { offset, limit })
+  );
+  ipcMain.handle('yusic:spotify:recent', (_event, opts) => spotifyAccount.getRecentlyPlayed(opts));
+  ipcMain.handle('yusic:spotify:search', (_event, query) => spotifyAccount.searchTracks(query));
+  ipcMain.handle('yusic:spotify:openPublicLink', (_event, url) =>
+    spotifyAccount.openPublicSpotifyLink(url)
+  );
+  ipcMain.handle('yusic:spotify:prefetch', (_event, track) => {
+    streamServer.prefetchExternalStream(track);
+    return true;
   });
 
-  ipcMain.handle('yusic:downloads:list', () => {
-    return downloader.listJobs();
-  });
-
-  ipcMain.handle('yusic:downloads:clearCompleted', () => {
-    return downloader.clearCompleted();
-  });
+  // Downloads
+  ipcMain.handle('yusic:downloads:detect', (_event, url) => detectMediaUrl(url));
+  ipcMain.handle('yusic:downloads:start', (_event, { url, options }) => downloader.enqueue(url, options));
+  ipcMain.handle('yusic:downloads:cancel', (_event, jobId) => downloader.cancelJob(jobId));
+  ipcMain.handle('yusic:downloads:list', () => downloader.listJobs());
+  ipcMain.handle('yusic:downloads:clearCompleted', () => downloader.clearCompleted());
 
   // Updater IPC
   ipcMain.handle('yusic:updater:getState', () => updater.getState());
@@ -240,12 +318,12 @@ function registerIpc() {
 function createWindow() {
   mainWindow = new BrowserWindow({
     title: 'Yusic',
-    width: 1240,
-    height: 820,
-    minWidth: 940,
-    minHeight: 620,
+    width: 1280,
+    height: 840,
+    minWidth: 960,
+    minHeight: 640,
     show: !isSmokeTest,
-    backgroundColor: '#0c0d12',
+    backgroundColor: '#000000',
     icon: fs.existsSync(ICON_PATH) ? ICON_PATH : undefined,
     autoHideMenuBar: true,
     webPreferences: {
@@ -301,7 +379,6 @@ async function runSmokeTest() {
     const smokeTrack = library.getTrackByPath(smokeWav);
     if (!smokeTrack) throw new Error('Smoke track was not discovered by LibraryManager');
 
-    // Check HTTP 206 Range request against StreamServer
     const audioUrl = `${serverInfo.url}/audio/${smokeTrack.id}?t=${encodeURIComponent(serverInfo.token)}`;
     const rangeRes = await fetch(audioUrl, { headers: { Range: 'bytes=0-1023' } });
     if (rangeRes.status !== 206) {
@@ -348,6 +425,21 @@ async function runSmokeTest() {
         pitchPreserveRadio.checked = true;
         pitchPreserveRadio.dispatchEvent(new Event('change', { bubbles: true }));
 
+        // View mode switching (list -> compact -> grid -> list)
+        document.getElementById('btn-view-grid').click();
+        await new Promise(r => setTimeout(r, 50));
+        const gridCardsCount = document.querySelectorAll('.track-card').length;
+        document.getElementById('btn-view-compact').click();
+        await new Promise(r => setTimeout(r, 50));
+        const isCompact = document.getElementById('track-list').classList.contains('is-compact');
+        document.getElementById('btn-view-list').click();
+
+        // Spotify tab check
+        document.getElementById('nav-spotify').click();
+        const spotifyViewVisible = !document.getElementById('view-spotify').hidden;
+        document.getElementById('nav-all-music').click();
+
+        // Dialog checks
         const plDialog = document.getElementById('playlist-dialog');
         document.getElementById('btn-new-playlist').click();
         const dialogOpened = plDialog.open;
@@ -360,6 +452,7 @@ async function runSmokeTest() {
         updateDialog.close('cancel');
         const updateDialogClosed = !updateDialog.open;
         const updateState = await window.yusic.getUpdateState();
+        const updateBannerHidden = document.getElementById('update-banner').hidden;
 
         const repeatBtn = document.getElementById('btn-repeat');
         const shuffleBtn = document.getElementById('btn-shuffle');
@@ -375,10 +468,14 @@ async function runSmokeTest() {
           title: document.title,
           versionText: document.getElementById('app-version-label')?.textContent,
           afterChange,
+          gridCardsCount,
+          isCompact,
+          spotifyViewVisible,
           dialogOpened,
           dialogClosed,
           updateDialogOpened,
           updateDialogClosed,
+          updateBannerHidden,
           updateVersion: updateState?.currentVersion,
           repeatCycle: [r0, r1, r2, r3],
           shufflePressed: shuffleBtn.getAttribute('aria-pressed'),
@@ -396,6 +493,9 @@ async function runSmokeTest() {
     if (!uiCheck.updateDialogOpened || !uiCheck.updateDialogClosed) {
       throw new Error(`Update dialog check failed: ${JSON.stringify(uiCheck)}`);
     }
+    if (uiCheck.gridCardsCount < 1 || !uiCheck.isCompact || !uiCheck.spotifyViewVisible) {
+      throw new Error(`View mode or Spotify tab check failed: ${JSON.stringify(uiCheck)}`);
+    }
     if (uiCheck.repeatCycle.join(',') !== 'off,all,one,off') {
       throw new Error(`Repeat cycle mismatch: ${JSON.stringify(uiCheck.repeatCycle)}`);
     }
@@ -405,13 +505,17 @@ async function runSmokeTest() {
 
     console.log(JSON.stringify({ ok: true, isPackaged: app.isPackaged, rangeStatus: rangeRes.status, uiCheck }, null, 2));
   } finally {
+    if (consoleErrors.length > 0 || pageErrors.length > 0) {
+      console.error('SMOKE_CAPTURED_ERRORS:', JSON.stringify({ consoleErrors, pageErrors }));
+    }
     if (fs.existsSync(smokeWav)) fs.unlinkSync(smokeWav);
     await library.scanAll();
     store.updateSettings({
       speed: 1.0,
       preservePitch: true,
       repeatMode: 'off',
-      shuffle: false
+      shuffle: false,
+      libraryViewMode: 'list'
     });
   }
 }
