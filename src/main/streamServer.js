@@ -125,6 +125,7 @@ export class StreamServer {
     if (pathname.startsWith('/stream/spotify/')) {
       const key = decodeURIComponent(pathname.slice('/stream/spotify/'.length));
       this._serveExternalStream(req, res, key, urlObj).catch((err) => {
+        if (err?.name === 'AbortError') return;
         this._sendError(res, 502, err?.message || 'Stream failed');
       });
       return;
@@ -355,7 +356,7 @@ export class StreamServer {
 
               const infoRes = await this._runYtDlp([
                 '-f',
-                'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+                'bestaudio[protocol^=http][protocol!*=m3u8][ext=m4a]/bestaudio[protocol^=http][protocol!*=m3u8][ext=webm]/bestaudio[protocol^=http][protocol!*=m3u8]/bestaudio',
                 '--no-playlist',
                 '--dump-single-json',
                 ytUrl
@@ -367,23 +368,48 @@ export class StreamServer {
                   let directUrl = info.url;
                   let ext = info.ext;
                   let headers = info.http_headers || {};
+                  let protocol = String(info.protocol || '');
 
-                  if (!directUrl && Array.isArray(info.formats)) {
-                    const audioOnly = info.formats
-                      .filter((f) => f && f.url && f.acodec && f.acodec !== 'none' && (!f.vcodec || f.vcodec === 'none'))
+                  const looksHls = (u, proto) =>
+                    String(proto || '').includes('m3u8') || /\.m3u8(?:\?|$)/i.test(String(u || ''));
+
+                  if ((!directUrl || looksHls(directUrl, protocol)) && Array.isArray(info.formats)) {
+                    const directAudio = info.formats
+                      .filter(
+                        (f) =>
+                          f &&
+                          f.url &&
+                          f.acodec &&
+                          f.acodec !== 'none' &&
+                          (!f.vcodec || f.vcodec === 'none') &&
+                          !looksHls(f.url, f.protocol)
+                      )
                       .sort((a, b) => (Number(b.abr) || 0) - (Number(a.abr) || 0));
-                    if (audioOnly[0]) {
-                      directUrl = audioOnly[0].url;
-                      ext = audioOnly[0].ext;
-                      headers = audioOnly[0].http_headers || headers;
+                    if (directAudio[0]) {
+                      directUrl = directAudio[0].url;
+                      ext = directAudio[0].ext;
+                      protocol = String(directAudio[0].protocol || '');
+                      headers = directAudio[0].http_headers || headers;
+                    } else if (!directUrl) {
+                      const anyAudio = info.formats
+                        .filter((f) => f && f.url && f.acodec && f.acodec !== 'none' && (!f.vcodec || f.vcodec === 'none'))
+                        .sort((a, b) => (Number(b.abr) || 0) - (Number(a.abr) || 0));
+                      if (anyAudio[0]) {
+                        directUrl = anyAudio[0].url;
+                        ext = anyAudio[0].ext;
+                        protocol = String(anyAudio[0].protocol || '');
+                        headers = anyAudio[0].http_headers || headers;
+                      }
                     }
                   }
 
                   if (directUrl) {
+                    const isHls = looksHls(directUrl, protocol);
                     const entry = {
                       url: directUrl,
                       headers,
-                      contentType: mimeForExt(ext),
+                      contentType: isHls ? 'audio/mpeg' : mimeForExt(ext),
+                      isHls,
                       expiresAt: Date.now() + STREAM_CACHE_TTL_MS
                     };
                     this.streamCache.set(cacheKey, entry);
@@ -440,6 +466,30 @@ export class StreamServer {
     };
 
     let resolved = await this.resolveExternalStream(params);
+
+    if (resolved.isHls && this.ffmpegPath) {
+      res.writeHead(200, {
+        'Content-Type': 'audio/mpeg',
+        'Access-Control-Allow-Origin': '*'
+      });
+      if (req.method === 'HEAD') {
+        res.end();
+        return;
+      }
+      const proc = spawn(
+        this.ffmpegPath,
+        ['-v', 'error', '-i', resolved.url, '-f', 'mp3', '-b:a', '192k', 'pipe:1'],
+        { windowsHide: true }
+      );
+      proc.stdout.pipe(res);
+      req.on('close', () => {
+        if (!proc.killed) proc.kill();
+      });
+      proc.on('error', () => {
+        if (!res.destroyed) res.destroy();
+      });
+      return;
+    }
 
     const fetchUpstream = async (targetEntry) => {
       const reqHeaders = { ...(targetEntry.headers || {}) };

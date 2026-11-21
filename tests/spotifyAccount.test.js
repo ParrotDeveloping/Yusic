@@ -11,7 +11,7 @@ import {
   generateCodeVerifier,
   normalizeSpotifyApiTrack
 } from '../src/main/spotifyAccount.js';
-import { YusicStore } from '../src/main/store.js';
+import { DEFAULT_SPOTIFY_CLIENT_ID, YusicStore } from '../src/main/store.js';
 import { StreamServer } from '../src/main/streamServer.js';
 
 test('PKCE helpers generate valid S256 challenge and redirect URI uses 127.0.0.1', () => {
@@ -192,4 +192,125 @@ test('StreamServer streams external Spotify tracks with Range 206 without writin
 
   // Verify zero files were written to muzikDir
   assert.deepEqual(fs.readdirSync(muzikDir), []);
+});
+
+test('SpotifyAccountManager defaults clientId, uses /playlists/{id}/items, and falls back to embed on 403', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'yusic-sp-v102-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const store = new YusicStore(path.join(dir, 'db.json'));
+  const freshMgr = new SpotifyAccountManager({ store, fetchImpl: async () => ({ ok: true, json: async () => ({}) }) });
+  assert.equal(freshMgr.getStatus().clientId, DEFAULT_SPOTIFY_CLIENT_ID);
+  assert.equal(DEFAULT_SPOTIFY_CLIENT_ID, 'f7dab3d9716247db8368240742febbf5');
+
+  store.setSpotifyAuth({
+    clientId: DEFAULT_SPOTIFY_CLIENT_ID,
+    accessToken: 'valid_tok',
+    refreshToken: 'ref_tok',
+    expiresAt: Date.now() + 3600_000,
+    user: { id: 'u1', displayName: 'Yukasu', imageUrl: '' }
+  });
+
+  const apiCalls = [];
+  const mockFetchItems = async (url) => {
+    apiCalls.push(url);
+    if (url.endsWith('/v1/playlists/pl123')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'pl123',
+          name: 'alwaysjustme',
+          description: 'Gece mod',
+          owner: { display_name: 'Yukasu' },
+          items: { total: 1 },
+          images: [{ url: 'https://img/pl123.jpg' }]
+        })
+      };
+    }
+    if (url.includes('/v1/playlists/pl123/items')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          total: 1,
+          next: null,
+          items: [
+            {
+              item: {
+                id: 'tr_item_1',
+                name: 'chimichanga',
+                duration_ms: 79000,
+                artists: [{ name: 'porcelain' }],
+                album: { name: 'chimichanga', images: [{ url: 'https://img/tr1.jpg' }] }
+              }
+            }
+          ]
+        })
+      };
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  const mgrItems = new SpotifyAccountManager({ store, fetchImpl: mockFetchItems });
+  const plResult = await mgrItems.getPlaylistTracks('pl123');
+  assert.equal(plResult.playlist.name, 'alwaysjustme');
+  assert.equal(plResult.tracks.length, 1);
+  assert.equal(plResult.tracks[0].title, 'chimichanga');
+  assert.equal(plResult.tracks[0].artist, 'porcelain');
+  assert.ok(apiCalls.some((u) => u.includes('/v1/playlists/pl123/items')));
+
+  // Test 403 Forbidden fallback to public Spotify embed HTML
+  const embedNextData = {
+    props: {
+      pageProps: {
+        state: {
+          data: {
+            entity: {
+              title: 'Restricted List',
+              coverArt: { sources: [{ url: 'https://img/embed.jpg' }] },
+              trackList: [
+                {
+                  uri: 'spotify:track:pub999',
+                  title: 'Fallback Song',
+                  subtitle: 'Embed Artist',
+                  duration: 185000
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  };
+  const embedHtml = `<!doctype html><html><body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(
+    embedNextData
+  )}</script></body></html>`;
+
+  const mgr403 = new SpotifyAccountManager({
+    store,
+    fetchImpl: async (url) => {
+      if (url.includes('api.spotify.com/v1/playlists/pl403')) {
+        return {
+          ok: false,
+          status: 403,
+          text: async () => JSON.stringify({ error: { status: 403, message: 'Forbidden' } })
+        };
+      }
+      if (url.startsWith('https://open.spotify.com/embed/playlist/pl403')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => embedHtml
+        };
+      }
+      throw new Error(`Unexpected fallback fetch URL: ${url}`);
+    }
+  });
+
+  const fallbackRes = await mgr403.getPlaylistTracks('pl403');
+  assert.equal(fallbackRes.playlist.name, 'Restricted List');
+  assert.equal(fallbackRes.tracks.length, 1);
+  assert.equal(fallbackRes.tracks[0].title, 'Fallback Song');
+  assert.equal(fallbackRes.tracks[0].artist, 'Embed Artist');
 });

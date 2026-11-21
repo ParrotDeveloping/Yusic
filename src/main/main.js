@@ -280,6 +280,7 @@ function registerIpc() {
   // Spotify Account & Live Streaming
   ipcMain.handle('yusic:spotify:getStatus', () => spotifyAccount.getStatus());
   ipcMain.handle('yusic:spotify:saveClientId', (_event, clientId) => spotifyAccount.setClientId(clientId));
+  ipcMain.handle('yusic:spotify:resetClientId', () => spotifyAccount.resetClientId());
   ipcMain.handle('yusic:spotify:login', (_event, clientId) => spotifyAccount.startLogin(clientId));
   ipcMain.handle('yusic:spotify:logout', () => spotifyAccount.logout());
   ipcMain.handle('yusic:spotify:openDashboard', () =>
@@ -323,7 +324,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     show: !isSmokeTest,
-    backgroundColor: '#000000',
+    backgroundColor: '#060911',
     icon: fs.existsSync(ICON_PATH) ? ICON_PATH : undefined,
     autoHideMenuBar: true,
     webPreferences: {
@@ -373,6 +374,8 @@ async function runSmokeTest() {
     ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', smokeWav],
     { windowsHide: true }
   );
+
+  const prevSettings = structuredClone(store.getSettings());
 
   try {
     await library.scanAll(true);
@@ -434,10 +437,42 @@ async function runSmokeTest() {
         const isCompact = document.getElementById('track-list').classList.contains('is-compact');
         document.getElementById('btn-view-list').click();
 
-        // Spotify tab check
+        // Spotify & Local separation check
         document.getElementById('nav-spotify').click();
         const spotifyViewVisible = !document.getElementById('view-spotify').hidden;
-        document.getElementById('nav-all-music').click();
+        const sidebarModeSpotify = document.getElementById('sidebar-library-heading')?.textContent;
+        document.getElementById('nav-local').click();
+        const sidebarModeLocal = document.getElementById('sidebar-library-heading')?.textContent;
+
+        // Settings view, tabs, UI scale & 10-band EQ checks
+        document.getElementById('nav-settings').click();
+        const settingsViewVisible = !document.getElementById('view-settings').hidden;
+        const eqTab = document.getElementById('stab-audio');
+        eqTab.click();
+        const eqPanelVisible = !document.getElementById('spanel-audio').hidden;
+        const eqBandsCount = document.querySelectorAll('.eq-band-slider').length;
+        const eqToggle = document.getElementById('chk-eq-enabled');
+        eqToggle.checked = true;
+        eqToggle.dispatchEvent(new Event('change', { bubbles: true }));
+        const bassPresetBtn = document.querySelector('[data-eq-preset="bass"]');
+        bassPresetBtn.click();
+
+        const appearanceTab = document.getElementById('stab-appearance');
+        appearanceTab.click();
+        const scaleSlider = document.getElementById('ui-scale-slider');
+        scaleSlider.value = '1.15';
+        scaleSlider.dispatchEvent(new Event('input', { bubbles: true }));
+        const zoomApplied = window.yusic.getZoomFactor();
+        scaleSlider.value = '1';
+        scaleSlider.dispatchEvent(new Event('input', { bubbles: true }));
+        document.getElementById('nav-local').click();
+
+        const resizerHandlesPresent = Boolean(
+          document.getElementById('resizer-sidebar') &&
+          document.getElementById('resizer-sidebar-split') &&
+          document.getElementById('resizer-player') &&
+          document.getElementById('resizer-corner')
+        );
 
         // Dialog checks
         const plDialog = document.getElementById('playlist-dialog');
@@ -471,6 +506,13 @@ async function runSmokeTest() {
           gridCardsCount,
           isCompact,
           spotifyViewVisible,
+          sidebarModeSpotify,
+          sidebarModeLocal,
+          settingsViewVisible,
+          eqPanelVisible,
+          eqBandsCount,
+          zoomApplied,
+          resizerHandlesPresent,
           dialogOpened,
           dialogClosed,
           updateDialogOpened,
@@ -493,10 +535,21 @@ async function runSmokeTest() {
     if (!uiCheck.updateDialogOpened || !uiCheck.updateDialogClosed) {
       throw new Error(`Update dialog check failed: ${JSON.stringify(uiCheck)}`);
     }
-    if (uiCheck.gridCardsCount < 1 || !uiCheck.isCompact || !uiCheck.spotifyViewVisible) {
-      throw new Error(`View mode or Spotify tab check failed: ${JSON.stringify(uiCheck)}`);
+    if (
+      uiCheck.gridCardsCount < 1 ||
+      !uiCheck.isCompact ||
+      !uiCheck.spotifyViewVisible ||
+      !uiCheck.settingsViewVisible ||
+      !uiCheck.eqPanelVisible ||
+      uiCheck.eqBandsCount !== 10 ||
+      Math.abs(uiCheck.zoomApplied - 1.15) > 0.02 ||
+      !uiCheck.resizerHandlesPresent
+    ) {
+      throw new Error(`v1.0.2 UI check failed: ${JSON.stringify(uiCheck)}`);
     }
-    if (uiCheck.repeatCycle.join(',') !== 'off,all,one,off') {
+    const nextRepeat = { off: 'all', all: 'one', one: 'off' };
+    const [r0, r1, r2, r3] = uiCheck.repeatCycle || [];
+    if (!nextRepeat[r0] || r1 !== nextRepeat[r0] || r2 !== nextRepeat[r1] || r3 !== r0) {
       throw new Error(`Repeat cycle mismatch: ${JSON.stringify(uiCheck.repeatCycle)}`);
     }
     if (consoleErrors.length > 0 || pageErrors.length > 0) {
@@ -510,13 +563,7 @@ async function runSmokeTest() {
     }
     if (fs.existsSync(smokeWav)) fs.unlinkSync(smokeWav);
     await library.scanAll();
-    store.updateSettings({
-      speed: 1.0,
-      preservePitch: true,
-      repeatMode: 'off',
-      shuffle: false,
-      libraryViewMode: 'list'
-    });
+    store.updateSettings(prevSettings);
   }
 }
 

@@ -10,22 +10,22 @@ fs.mkdirSync(ASSETS_DIR, { recursive: true });
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e1638"/>
-      <stop offset="55%" stop-color="#3b1f75"/>
-      <stop offset="100%" stop-color="#6d28d9"/>
+      <stop offset="0%" stop-color="#0b1d3a"/>
+      <stop offset="55%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
     </linearGradient>
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#c4b5fd"/>
-      <stop offset="50%" stop-color="#f472b6"/>
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="50%" stop-color="#7dd3fc"/>
       <stop offset="100%" stop-color="#38bdf8"/>
     </linearGradient>
   </defs>
   <rect x="12" y="12" width="232" height="232" rx="54" fill="url(#bg)"/>
-  <rect x="16" y="16" width="224" height="224" rx="50" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="3"/>
+  <rect x="16" y="16" width="224" height="224" rx="50" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="3"/>
   <path d="M74 72 L128 136 L182 72" fill="none" stroke="url(#accent)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M128 136 L128 190" fill="none" stroke="url(#accent)" stroke-width="22" stroke-linecap="round"/>
-  <rect x="54" y="148" width="14" height="36" rx="7" fill="#a78bfa" opacity="0.85"/>
-  <rect x="188" y="148" width="14" height="36" rx="7" fill="#38bdf8" opacity="0.85"/>
+  <rect x="54" y="148" width="14" height="36" rx="7" fill="#93c5fd" opacity="0.9"/>
+  <rect x="188" y="148" width="14" height="36" rx="7" fill="#38bdf8" opacity="0.9"/>
 </svg>
 `;
 
@@ -72,15 +72,15 @@ for (let y = 0; y < H; y++) {
     const bgAlpha = 1 - smoothstep(-1, 1, bgDist);
 
     const t = clamp((x + y) / (W + H), 0, 1);
-    let r = mix(28, 109, t);
-    let g = mix(20, 40, t);
-    let b = mix(62, 217, t);
+    let r = mix(11, 14, t);
+    let g = mix(29, 165, t);
+    let b = mix(58, 233, t);
 
     // Subtle radial highlight
     const glow = Math.exp(-((x - 96) ** 2 + (y - 76) ** 2) / (2 * 90 * 90));
-    r = mix(r, 155, glow * 0.25);
-    g = mix(g, 92, glow * 0.25);
-    b = mix(b, 255, glow * 0.35);
+    r = mix(r, 96, glow * 0.25);
+    g = mix(g, 185, glow * 0.28);
+    b = mix(b, 255, glow * 0.38);
 
     // Inner subtle border
     const borderDist = Math.abs(sdRoundedBox(cx, cy, 112, 112, 50));
@@ -102,9 +102,9 @@ for (let y = 0; y < H; y++) {
     const pillAlpha = Math.max(1 - smoothstep(-1, 1, bLeft), 1 - smoothstep(-1, 1, bRight)) * 0.88;
 
     const gt = clamp((x - 54) / 148, 0, 1);
-    const ar = mix(196, 56, gt);
-    const ag = mix(181, 189, gt);
-    const ab = mix(253, 248, gt);
+    const ar = mix(224, 56, gt);
+    const ag = mix(242, 189, gt);
+    const ab = mix(254, 248, gt);
 
     r = mix(r, ar, pillAlpha);
     g = mix(g, ag, pillAlpha);

@@ -2,6 +2,9 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { resolveSpotifyUrl } from './spotifyResolver.js';
+import { DEFAULT_SPOTIFY_CLIENT_ID } from './store.js';
+
+export { DEFAULT_SPOTIFY_CLIENT_ID };
 
 export const SPOTIFY_CALLBACK_PORT = 43821;
 export const SPOTIFY_REDIRECT_URI = `http://127.0.0.1:${SPOTIFY_CALLBACK_PORT}/callback`;
@@ -22,8 +25,8 @@ export function generateCodeChallenge(verifier) {
 }
 
 export function normalizeSpotifyApiTrack(item) {
-  const t = item && item.track ? item.track : item;
-  if (!t || !t.id || t.is_local || t.type === 'episode') return null;
+  const t = item?.item || item?.track || item;
+  if (!t || !t.id || item?.is_local || t.is_local || (t.type && t.type !== 'track')) return null;
 
   const artists = Array.isArray(t.artists)
     ? t.artists.map((a) => String(a?.name || '').trim()).filter(Boolean).join(', ')
@@ -48,7 +51,7 @@ export function normalizeSpotifyApiTrack(item) {
 }
 
 function callbackHtmlPage({ ok, title, message }) {
-  const accent = ok ? '#1ed760' : '#ef4444';
+  const accent = ok ? '#38bdf8' : '#ef4444';
   return `<!doctype html>
 <html lang="tr">
 <head>
@@ -98,17 +101,21 @@ export class SpotifyAccountManager extends EventEmitter {
     const auth = this.store.getSpotifyAuth();
     return {
       connected: Boolean(auth.accessToken && auth.user),
-      clientId: auth.clientId || '',
+      clientId: auth.clientId || DEFAULT_SPOTIFY_CLIENT_ID,
       user: auth.user ? { ...auth.user } : null,
       redirectUri: SPOTIFY_REDIRECT_URI
     };
   }
 
   setClientId(clientId) {
-    this.store.setSpotifyAuth({ clientId: String(clientId || '').trim() });
+    this.store.setSpotifyAuth({ clientId: String(clientId || '').trim() || DEFAULT_SPOTIFY_CLIENT_ID });
     const status = this.getStatus();
     this.emit('auth-changed', status);
     return status;
+  }
+
+  resetClientId() {
+    return this.setClientId(DEFAULT_SPOTIFY_CLIENT_ID);
   }
 
   logout() {
@@ -135,10 +142,9 @@ export class SpotifyAccountManager extends EventEmitter {
   }
 
   async startLogin(clientIdInput) {
-    const cleanClientId = String(clientIdInput ?? this.store.getSpotifyAuth().clientId ?? '').trim();
-    if (!cleanClientId) {
-      throw new Error('Lütfen önce Spotify Client ID değerini girin.');
-    }
+    const cleanClientId =
+      String(clientIdInput ?? this.store.getSpotifyAuth().clientId ?? DEFAULT_SPOTIFY_CLIENT_ID).trim() ||
+      DEFAULT_SPOTIFY_CLIENT_ID;
     this.store.setSpotifyAuth({ clientId: cleanClientId });
 
     this._cleanupPendingLogin();
@@ -374,7 +380,9 @@ export class SpotifyAccountManager extends EventEmitter {
       } catch {
         // Ignore parse error
       }
-      throw new Error(msg);
+      const err = new Error(msg);
+      err.statusCode = res.status;
+      throw err;
     }
 
     return res.json();
@@ -406,7 +414,7 @@ export class SpotifyAccountManager extends EventEmitter {
         name: String(p.name || 'Adsız Liste'),
         description: String(p.description || '').replace(/<[^>]+>/g, ''),
         ownerName: String(p.owner?.display_name || p.owner?.id || ''),
-        trackCount: Number(p.tracks?.total ?? p.items?.total ?? 0),
+        trackCount: Number(p.items?.total ?? p.tracks?.total ?? 0),
         coverUrl: String(p.images?.[0]?.url || ''),
         externalUrl: String(p.external_urls?.spotify || '')
       }));
@@ -420,35 +428,88 @@ export class SpotifyAccountManager extends EventEmitter {
   }
 
   async getPlaylistTracks(spotifyPlaylistId, { limit = 100, offset = 0 } = {}) {
-    const safeId = encodeURIComponent(String(spotifyPlaylistId || '').trim());
+    const rawId = String(spotifyPlaylistId || '').trim();
+    const safeId = encodeURIComponent(rawId);
     const safeLimit = Math.min(100, Math.max(1, Number(limit) || 100));
     const safeOffset = Math.max(0, Number(offset) || 0);
 
     let playlistHeader = null;
+    let embeddedMeta = null;
     if (safeOffset === 0) {
-      const meta = await this._apiGet(`/playlists/${safeId}?fields=id,name,description,images,owner,tracks(total)`);
-      playlistHeader = {
-        id: `spotify:pl:${meta.id}`,
-        spotifyPlaylistId: String(meta.id),
-        name: String(meta.name || 'Spotify Listesi'),
-        description: String(meta.description || '').replace(/<[^>]+>/g, ''),
-        ownerName: String(meta.owner?.display_name || ''),
-        trackCount: Number(meta.tracks?.total || 0),
-        coverUrl: String(meta.images?.[0]?.url || '')
-      };
+      try {
+        embeddedMeta = await this._apiGet(`/playlists/${safeId}`);
+        playlistHeader = {
+          id: `spotify:pl:${embeddedMeta.id}`,
+          spotifyPlaylistId: String(embeddedMeta.id),
+          name: String(embeddedMeta.name || 'Spotify Listesi'),
+          description: String(embeddedMeta.description || '').replace(/<[^>]+>/g, ''),
+          ownerName: String(embeddedMeta.owner?.display_name || ''),
+          trackCount: Number(embeddedMeta.items?.total ?? embeddedMeta.tracks?.total ?? 0),
+          coverUrl: String(embeddedMeta.images?.[0]?.url || '')
+        };
+      } catch (metaErr) {
+        if (metaErr?.statusCode !== 403 && metaErr?.statusCode !== 404) {
+          throw metaErr;
+        }
+      }
     }
 
-    const data = await this._apiGet(`/playlists/${safeId}/tracks?limit=${safeLimit}&offset=${safeOffset}`);
-    const tracks = (data.items || []).map(normalizeSpotifyApiTrack).filter(Boolean);
+    try {
+      // Spotify Web API (Feb 2026+) uses /playlists/{id}/items instead of deprecated /tracks
+      const data = await this._apiGet(`/playlists/${safeId}/items?limit=${safeLimit}&offset=${safeOffset}`);
+      const rawItems = Array.isArray(data.items) ? data.items : [];
+      const tracks = rawItems.map(normalizeSpotifyApiTrack).filter(Boolean);
+      return {
+        playlist: playlistHeader,
+        total: Number(data.total) || playlistHeader?.trackCount || tracks.length,
+        offset: safeOffset,
+        limit: safeLimit,
+        hasMore: Boolean(data.next),
+        tracks
+      };
+    } catch (itemsErr) {
+      const status = itemsErr?.statusCode;
+      if (status !== 403 && status !== 404 && status !== 400) {
+        throw itemsErr;
+      }
 
-    return {
-      playlist: playlistHeader,
-      total: Number(data.total) || tracks.length,
-      offset: safeOffset,
-      limit: safeLimit,
-      hasMore: Boolean(data.next),
-      tracks
-    };
+      // Check if GET /playlists/{id} itself already included embedded items
+      const embeddedContainer = embeddedMeta?.items || embeddedMeta?.tracks;
+      if (safeOffset === 0 && Array.isArray(embeddedContainer?.items) && embeddedContainer.items.length > 0) {
+        const tracks = embeddedContainer.items.map(normalizeSpotifyApiTrack).filter(Boolean);
+        return {
+          playlist: playlistHeader,
+          total: Number(embeddedContainer.total) || tracks.length,
+          offset: 0,
+          limit: safeLimit,
+          hasMore: Boolean(embeddedContainer.next),
+          tracks
+        };
+      }
+
+      // Fall back gracefully to public Spotify embed metadata when Web API blocks /items
+      try {
+        const pub = await this.openPublicSpotifyLink(`https://open.spotify.com/playlist/${rawId}`);
+        return {
+          playlist: playlistHeader || {
+            id: `spotify:pl:${rawId}`,
+            spotifyPlaylistId: rawId,
+            name: pub.name,
+            description: pub.truncatedAt100 ? 'Herkese açık listeden ilk 100 şarkı' : '',
+            ownerName: '',
+            trackCount: pub.tracks.length,
+            coverUrl: pub.coverUrl
+          },
+          total: pub.tracks.length,
+          offset: 0,
+          limit: safeLimit,
+          hasMore: false,
+          tracks: pub.tracks
+        };
+      } catch {
+        throw itemsErr;
+      }
+    }
   }
 
   async getRecentlyPlayed({ limit = 30 } = {}) {

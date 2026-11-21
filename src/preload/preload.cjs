@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, webUtils } = require('electron');
+const { contextBridge, ipcRenderer, webFrame, webUtils } = require('electron');
 
 function subscribe(channel, callback) {
   if (typeof callback !== 'function') return () => {};
@@ -9,6 +9,12 @@ function subscribe(channel, callback) {
 
 contextBridge.exposeInMainWorld('yusic', {
   init: () => ipcRenderer.invoke('yusic:app:init'),
+  setZoomFactor: (factor) => {
+    const f = Math.min(1.5, Math.max(0.75, Number(factor) || 1));
+    webFrame.setZoomFactor(f);
+    return f;
+  },
+  getZoomFactor: () => webFrame.getZoomFactor(),
 
   // Library
   scanLibrary: () => ipcRenderer.invoke('yusic:library:scan'),
@@ -48,6 +54,7 @@ contextBridge.exposeInMainWorld('yusic', {
   // Spotify Account & Live Streaming
   getSpotifyStatus: () => ipcRenderer.invoke('yusic:spotify:getStatus'),
   saveSpotifyClientId: (clientId) => ipcRenderer.invoke('yusic:spotify:saveClientId', clientId),
+  resetSpotifyClientId: () => ipcRenderer.invoke('yusic:spotify:resetClientId'),
   loginSpotify: (clientId) => ipcRenderer.invoke('yusic:spotify:login', clientId),
   logoutSpotify: () => ipcRenderer.invoke('yusic:spotify:logout'),
   openSpotifyDashboard: () => ipcRenderer.invoke('yusic:spotify:openDashboard'),

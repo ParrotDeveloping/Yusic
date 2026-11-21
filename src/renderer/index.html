@@ -7,67 +7,107 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <!-- Left Sidebar (Spotify-inspired floating cards) -->
-    <aside class="sidebar" aria-label="Yan menü">
-      <div class="sidebar-card sidebar-nav-card">
+  <div class="app-shell" id="app-shell">
+    <!-- Left Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Yan menü">
+      <div class="sidebar-card sidebar-nav-card" id="sidebar-nav-card">
         <div class="brand">
           <div class="brand-logo" aria-hidden="true">
             <svg viewBox="0 0 64 64" width="30" height="30">
               <defs>
                 <linearGradient id="yusicBg" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stop-color="#14532d"/>
-                  <stop offset="100%" stop-color="#1db954"/>
+                  <stop offset="0%" stop-color="#0b1d3a"/>
+                  <stop offset="55%" stop-color="#1d4ed8"/>
+                  <stop offset="100%" stop-color="#0ea5e9"/>
                 </linearGradient>
               </defs>
               <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#yusicBg)"/>
-              <path d="M18 18 L32 34 L46 18 M32 34 L32 48" fill="none" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <rect x="13" y="37" width="4" height="10" rx="2" fill="#bbf7d0"/>
-              <rect x="47" y="37" width="4" height="10" rx="2" fill="#bbf7d0"/>
+              <path d="M18 18 L32 34 L46 18 M32 34 L32 48" fill="none" stroke="#e0f2fe" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="13" y="37" width="4" height="10" rx="2" fill="#93c5fd"/>
+              <rect x="47" y="37" width="4" height="10" rx="2" fill="#38bdf8"/>
             </svg>
           </div>
           <div class="brand-text">
             <span class="brand-name">Yusic</span>
-            <span class="brand-sub">Müzik &amp; Spotify Akış</span>
+            <span class="brand-sub">Yerel &amp; Spotify Akış</span>
           </div>
         </div>
 
         <nav class="nav-group" aria-label="Ana görünümler">
-          <button type="button" class="nav-item is-active" id="nav-all-music" data-view="library">
-            <span class="nav-icon" aria-hidden="true">♪</span>
-            <span class="nav-label">Tüm Müzikler</span>
+          <button type="button" class="nav-item is-active" id="nav-local" data-view="library">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            </svg>
+            <span class="nav-label">Yerel Müzik</span>
             <span class="nav-badge" id="badge-all-count">0</span>
           </button>
+
           <button type="button" class="nav-item" id="nav-spotify" data-view="spotify">
-            <span class="nav-icon nav-icon--spotify" aria-hidden="true">●</span>
+            <svg class="nav-svg nav-svg--spotify" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M8 9.5c2.8-.8 6-.5 8.5.9M8.5 13c2.3-.6 4.8-.3 6.8.8M9.2 16.2c1.8-.4 3.6-.2 5 .6"/>
+            </svg>
             <span class="nav-label">Spotify</span>
-            <span class="nav-badge nav-badge--spotify" id="badge-spotify-status" hidden>Bağlı</span>
+            <span class="nav-badge nav-badge--accent" id="badge-spotify-status" hidden>Bağlı</span>
           </button>
+
           <button type="button" class="nav-item" id="nav-downloader" data-view="downloader">
-            <span class="nav-icon" aria-hidden="true">⇩</span>
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+            </svg>
             <span class="nav-label">MP3 İndirici</span>
             <span class="nav-badge nav-badge--accent" id="badge-dl-active" hidden>0</span>
+          </button>
+
+          <button type="button" class="nav-item" id="nav-settings" data-view="settings">
+            <svg class="nav-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span class="nav-label">Ayarlar</span>
           </button>
         </nav>
       </div>
 
-      <div class="sidebar-card sidebar-library-card">
+      <!-- Horizontal Resizer inside Sidebar (Nav / Library split) -->
+      <div class="resizer resizer-h resizer-split" id="resizer-sidebar-split" role="separator" aria-orientation="horizontal" aria-label="Menü ve kitaplık yüksekliğini ayarla" title="Sürükleyerek boyutlandır (Çift tık: sıfırla)"></div>
+
+      <div class="sidebar-card sidebar-library-card" id="sidebar-library-card">
         <div class="library-card-head">
-          <span class="library-heading">Kitaplığın</span>
-          <div class="library-head-btns">
+          <span class="library-heading" id="sidebar-library-heading">Yerel Kitaplık</span>
+          <div class="library-head-btns" id="local-lib-head-btns">
             <button type="button" class="icon-btn" id="btn-new-playlist" title="Yeni Playlist Oluştur" aria-label="Yeni Playlist Oluştur">+</button>
-            <button type="button" class="icon-btn" id="btn-open-folder" title="Müzik Klasörünü Aç" aria-label="Müzik Klasörünü Aç">📁</button>
-            <button type="button" class="icon-btn" id="btn-rescan" title="Klasörü Yeniden Tara" aria-label="Yenile">↻</button>
-            <button type="button" class="icon-btn" id="btn-pick-files" title="Bilgisayardan Ses Dosyası Ekle" aria-label="Dosya Ekle">＋</button>
+            <button type="button" class="icon-btn" id="btn-open-folder" title="Müzik Klasörünü Aç" aria-label="Müzik Klasörünü Aç">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
+            <button type="button" class="icon-btn" id="btn-rescan" title="Klasörü Yeniden Tara" aria-label="Yenile">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </button>
+            <button type="button" class="icon-btn" id="btn-pick-files" title="Bilgisayardan Ses Dosyası Ekle" aria-label="Dosya Ekle">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+            </button>
+          </div>
+          <div class="library-head-btns" id="spotify-lib-head-btns" hidden>
+            <button type="button" class="icon-btn" id="btn-sp-sidebar-refresh" title="Spotify Kitaplığını Yenile" aria-label="Spotify Yenile">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </button>
           </div>
         </div>
 
         <div class="playlists-list scroller" id="sidebar-playlists" role="list">
-          <!-- Rendered dynamically: Spotify Liked/Playlists + Local Playlists -->
+          <!-- Context-separated: Local playlists when in Yerel mode, Spotify items when in Spotify mode -->
         </div>
 
         <div class="sidebar-footer">
-          <span class="app-version-label" id="app-version-label">Yusic v1.0.1</span>
+          <span class="app-version-label" id="app-version-label">Yusic v1.0.2</span>
           <button type="button" class="btn btn-ghost btn-xs update-check-btn" id="btn-check-updates" title="GitHub üzerinden güncellemeleri kontrol et">
             <span>Güncelleme Kontrol Et</span>
             <span class="update-dot" id="update-dot" hidden aria-hidden="true"></span>
@@ -75,6 +115,9 @@
         </div>
       </div>
     </aside>
+
+    <!-- Vertical Resizer between Sidebar and Main Area -->
+    <div class="resizer resizer-v" id="resizer-sidebar" role="separator" aria-orientation="vertical" aria-label="Kenar çubuğu genişliğini ayarla" title="Sürükleyerek genişlet/daralt (Çift tık: sıfırla)"></div>
 
     <!-- Main Content Area -->
     <main class="main-area" id="main-area">
@@ -95,18 +138,18 @@
         </div>
       </div>
 
-      <!-- Library / Playlist View -->
-      <section class="view view-library is-active scroller" id="view-library" aria-label="Müzik Kütüphanesi">
+      <!-- Local Library / Playlist View -->
+      <section class="view view-library is-active scroller" id="view-library" aria-label="Yerel Müzik Kütüphanesi">
         <header class="hero-header" id="lib-hero">
           <div class="hero-cover" id="lib-hero-cover">
             <div class="hero-cover-art" id="lib-hero-cover-art">♪</div>
             <button type="button" class="hero-cover-overlay" id="btn-hero-pick-cover" hidden>
-              <span>📷 Fotoğraf Seç</span>
+              <span>Fotoğraf Seç</span>
             </button>
           </div>
           <div class="hero-info">
-            <span class="hero-eyebrow" id="view-eyebrow">KÜTÜPHANE</span>
-            <h1 class="hero-title" id="view-title">Tüm Müzikler</h1>
+            <span class="hero-eyebrow" id="view-eyebrow">YEREL KÜTÜPHANE</span>
+            <h1 class="hero-title" id="view-title">Tüm Yerel Müzikler</h1>
             <p class="hero-desc" id="view-desc" hidden></p>
             <div class="hero-meta-row">
               <span class="hero-meta" id="view-meta">0 şarkı • 0 dk</span>
@@ -117,18 +160,14 @@
 
         <div class="action-bar">
           <div class="action-bar-left">
-            <button type="button" class="spotify-play-circle" id="btn-play-all" title="Tümünü Çal" aria-label="Tümünü Çal">
-              ▶
+            <button type="button" class="primary-play-circle" id="btn-play-all" title="Tümünü Çal" aria-label="Tümünü Çal">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                <path d="M8 5.5v13l11-6.5z"/>
+              </svg>
             </button>
-            <button type="button" class="btn btn-ghost btn-sm" id="btn-shuffle-all" title="Karışık Çal">
-              🔀 Karışık
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-playlist-speed" hidden>
-              ⚡ Liste Hızı
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-playlist-edit" hidden>
-              ✎ Düzenle
-            </button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-shuffle-all" title="Karışık Çal">Karışık Çal</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-playlist-speed" hidden>Liste Hızı</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-playlist-edit" hidden>Düzenle</button>
           </div>
 
           <div class="action-bar-right">
@@ -137,9 +176,9 @@
               <input type="search" id="search-input" class="input-search" placeholder="Şarkı, sanatçı veya albüm ara..." aria-label="Müziklerde ara">
             </div>
             <div class="view-mode-group" role="group" aria-label="Görünüm modu">
-              <button type="button" class="view-mode-btn is-active" id="btn-view-list" data-mode="list" title="Liste görünümü">Liste</button>
-              <button type="button" class="view-mode-btn" id="btn-view-compact" data-mode="compact" title="Kompakt görünüm">Kompakt</button>
-              <button type="button" class="view-mode-btn" id="btn-view-grid" data-mode="grid" title="Kart ızgarası görünümü">Izgara</button>
+              <button type="button" class="view-mode-btn is-active" id="btn-view-list" data-mode="list">Liste</button>
+              <button type="button" class="view-mode-btn" id="btn-view-compact" data-mode="compact">Kompakt</button>
+              <button type="button" class="view-mode-btn" id="btn-view-grid" data-mode="grid">Izgara</button>
             </div>
             <div class="sort-wrap" id="sort-wrap">
               <label for="sort-select" class="sr-only">Sıralama</label>
@@ -161,43 +200,35 @@
             <span class="col-dur">Süre</span>
             <span class="col-actions">İşlemler</span>
           </div>
-          <div class="track-list" id="track-list" role="list">
-            <!-- Rendered dynamically -->
-          </div>
+          <div class="track-list" id="track-list" role="list"></div>
 
           <div class="empty-state" id="library-empty" hidden>
-            <div class="empty-icon" aria-hidden="true">🎵</div>
+            <div class="empty-icon" aria-hidden="true">♪</div>
             <h2 class="empty-title" id="empty-title">Müzik klasörün henüz boş</h2>
             <p class="empty-desc" id="empty-desc">
-              Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify/YouTube'dan dinleyip indirebilirsin.
+              Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify sekmesinden indirmeden dinleyebilirsin.
             </p>
             <code class="path-pill" id="empty-muzik-path"></code>
             <div class="empty-buttons">
               <button type="button" class="btn btn-primary" id="btn-empty-open-folder">Müzik Klasörünü Aç</button>
-              <button type="button" class="btn btn-secondary" id="btn-empty-go-spotify">Spotify'da Dinle</button>
+              <button type="button" class="btn btn-secondary" id="btn-empty-go-spotify">Spotify'a Geç</button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Spotify Live Streaming View -->
+      <!-- Spotify Live Streaming View (Clean Tabbed Architecture) -->
       <section class="view view-spotify scroller" id="view-spotify" aria-label="Spotify Canlı Akış" hidden>
-        <div class="spotify-topbar">
-          <div class="spotify-public-form-wrap">
-            <form id="sp-public-form" class="sp-public-form">
-              <label for="sp-public-url" class="sr-only">Herkese açık Spotify şarkı, albüm veya playlist bağlantısı</label>
-              <input
-                type="url"
-                id="sp-public-url"
-                class="input-search input-search--plain"
-                placeholder="Herkese açık Spotify linki yapıştır — indirmeden anında dinle..."
-                autocomplete="off"
-                spellcheck="false"
-              >
-              <button type="submit" class="btn btn-primary btn-sm">İndirmeden Aç</button>
-            </form>
+        <div class="spotify-header-bar">
+          <div class="sp-tablist" id="sp-tablist" role="tablist" aria-label="Spotify bölümleri">
+            <button type="button" role="tab" id="sp-tab-liked" class="tab-btn" data-sptab="liked" aria-selected="true">Beğenilen Şarkılar</button>
+            <button type="button" role="tab" id="sp-tab-playlists" class="tab-btn" data-sptab="playlists" aria-selected="false">Listelerim</button>
+            <button type="button" role="tab" id="sp-tab-recent" class="tab-btn" data-sptab="recent" aria-selected="false">Son Dinlenenler</button>
+            <button type="button" role="tab" id="sp-tab-search" class="tab-btn" data-sptab="search" aria-selected="false">Spotify'da Ara</button>
+            <button type="button" role="tab" id="sp-tab-public" class="tab-btn" data-sptab="public" aria-selected="false">Linkten Dinle</button>
           </div>
-          <div class="spotify-user-bar" id="sp-user-bar" hidden>
+
+          <div class="spotify-account-pill" id="sp-user-bar" hidden>
             <img id="sp-user-avatar" class="sp-user-avatar" alt="" hidden>
             <span class="sp-user-name" id="sp-user-name"></span>
             <button type="button" class="btn btn-ghost btn-xs" id="btn-sp-refresh">Yenile</button>
@@ -205,71 +236,62 @@
           </div>
         </div>
 
-        <!-- Connect Account Card (shown when not logged in) -->
+        <!-- 1-Click Connect Card (Built-in Client ID, shown on account tabs when logged out) -->
         <div class="spotify-connect-card" id="sp-connect-card">
           <div class="sp-connect-copy">
-            <span class="hero-eyebrow hero-eyebrow--green">SPOTIFY HESABINI BAĞLA</span>
-            <h2>Beğenilen Şarkılarını ve Listelerini İndirmeden Dinle</h2>
+            <span class="hero-eyebrow hero-eyebrow--accent">SPOTIFY HESABI</span>
+            <h2>Spotify Hesabını Tek Tıkla Bağla</h2>
             <p>
-              Kendi Spotify hesabını OAuth 2.0 (PKCE) ile güvenle bağlayarak <strong>Beğenilen Şarkılarını</strong>,
-              özel listelerini ve son dinlediklerini doğrudan Yusic içinden hız/ton ayarıyla çalabilirsin.
+              Spotify Client ID uygulamaya hazır tanımlıdır. Hesabını bağlayarak
+              <strong>Beğenilen Şarkılarını</strong>, listelerini ve son dinlediklerini indirmeden akış olarak çalabilirsin.
             </p>
-            <ol class="sp-setup-steps">
-              <li>
-                <button type="button" class="btn btn-secondary btn-xs" id="btn-sp-dashboard">Spotify Developer Dashboard'u Aç</button>
-                <span>ve ücretsiz bir uygulama (App) oluştur.</span>
-              </li>
-              <li>
-                Redirect URI alanına şu adresi ekle:
-                <code class="inline-code" id="sp-redirect-uri-code">http://127.0.0.1:43821/callback</code>
-                <button type="button" class="btn btn-ghost btn-xs" id="btn-sp-copy-redirect">Kopyala</button>
-              </li>
-              <li>Oluşan <strong>Client ID</strong> değerini aşağıya yapıştır ve bağlan:</li>
-            </ol>
-            <form id="sp-login-form" class="sp-login-form">
-              <label for="sp-client-id-input" class="sr-only">Spotify Client ID</label>
-              <input
-                type="text"
-                id="sp-client-id-input"
-                class="text-input"
-                placeholder="Spotify Client ID (ör. 32 karakterli kimlik)"
-                autocomplete="off"
-                spellcheck="false"
-              >
-              <button type="submit" class="btn btn-primary" id="btn-sp-login">Spotify ile Bağlan</button>
-            </form>
+            <div class="sp-connect-actions">
+              <button type="button" class="btn btn-primary btn-lg" id="btn-sp-login">Spotify ile Bağlan</button>
+              <button type="button" class="btn btn-secondary" id="btn-sp-go-public">Giriş Yapmadan Linkten Dinle</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-sp-open-settings">Client ID Ayarları</button>
+            </div>
           </div>
         </div>
 
-        <!-- Connected Spotify Sub-navigation -->
-        <div class="sp-subnav" id="sp-subnav" hidden>
-          <div class="sp-subtabs" role="tablist">
-            <button type="button" class="sp-tab is-active" data-sptab="liked">💜 Beğenilen Şarkılar</button>
-            <button type="button" class="sp-tab" data-sptab="playlists">Listelerim</button>
-            <button type="button" class="sp-tab" data-sptab="recent">Son Dinlenenler</button>
-            <button type="button" class="sp-tab" data-sptab="search">Spotify'da Ara</button>
-          </div>
-          <form id="sp-search-form" class="sp-search-form" hidden>
+        <!-- Tab-scoped Search Form (only visible on 'Ara' tab) -->
+        <div class="sp-tab-toolbar" id="sp-search-bar" hidden>
+          <form id="sp-search-form" class="sp-inline-form">
             <label for="sp-search-input" class="sr-only">Spotify'da şarkı veya sanatçı ara</label>
-            <input type="search" id="sp-search-input" class="input-search input-search--plain" placeholder="Spotify kataloğunda ara...">
-            <button type="submit" class="btn btn-secondary btn-sm">Ara</button>
+            <input type="search" id="sp-search-input" class="input-search input-search--plain" placeholder="Spotify kataloğunda şarkı veya sanatçı ara...">
+            <button type="submit" class="btn btn-primary">Ara</button>
           </form>
         </div>
 
-        <!-- Spotify Playlists Grid (when Listelerim tab is active) -->
+        <!-- Tab-scoped Public Link Form (only visible on 'Linkten Dinle' tab) -->
+        <div class="sp-tab-toolbar" id="sp-public-bar" hidden>
+          <form id="sp-public-form" class="sp-inline-form">
+            <label for="sp-public-url" class="sr-only">Herkese açık Spotify şarkı, albüm veya playlist bağlantısı</label>
+            <input
+              type="url"
+              id="sp-public-url"
+              class="input-search input-search--plain"
+              placeholder="https://open.spotify.com/playlist/... veya şarkı linki yapıştır"
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <button type="submit" class="btn btn-primary">İndirmeden Aç</button>
+          </form>
+        </div>
+
+        <!-- Spotify Playlists Grid -->
         <div class="sp-playlists-grid" id="sp-playlists-grid" hidden></div>
 
-        <!-- Spotify Active Track Collection (Hero + Action Bar + List/Compact/Grid) -->
+        <!-- Spotify Active Track Collection -->
         <div id="sp-collection-area" hidden>
           <header class="hero-header hero-header--compact" id="sp-hero">
             <div class="hero-cover" id="sp-hero-cover">
               <div class="hero-cover-art" id="sp-hero-cover-art">♪</div>
               <button type="button" class="hero-cover-overlay" id="btn-sp-hero-pick-cover">
-                <span>📷 Fotoğraf Seç</span>
+                <span>Fotoğraf Seç</span>
               </button>
             </div>
             <div class="hero-info">
-              <span class="hero-eyebrow hero-eyebrow--green" id="sp-hero-eyebrow">SPOTIFY AKIŞ</span>
+              <span class="hero-eyebrow hero-eyebrow--accent" id="sp-hero-eyebrow">SPOTIFY AKIŞ</span>
               <h1 class="hero-title" id="sp-hero-title">Beğenilen Şarkılar</h1>
               <p class="hero-desc" id="sp-hero-desc" hidden></p>
               <div class="hero-meta-row">
@@ -281,11 +303,13 @@
 
           <div class="action-bar">
             <div class="action-bar-left">
-              <button type="button" class="spotify-play-circle" id="btn-sp-play-all" title="Tümünü Canlı Çal" aria-label="Tümünü Canlı Çal">
-                ▶
+              <button type="button" class="primary-play-circle" id="btn-sp-play-all" title="Tümünü Canlı Çal" aria-label="Tümünü Canlı Çal">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                  <path d="M8 5.5v13l11-6.5z"/>
+                </svg>
               </button>
-              <button type="button" class="btn btn-ghost btn-sm" id="btn-sp-shuffle-all">🔀 Karışık</button>
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-list-speed">⚡ Liste Hızı</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-sp-shuffle-all">Karışık Çal</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-list-speed">Liste Hızı</button>
             </div>
 
             <div class="action-bar-right">
@@ -320,9 +344,9 @@
       <section class="view view-downloader scroller" id="view-downloader" aria-label="Spotify ve YouTube İndirici" hidden>
         <header class="view-header">
           <div class="view-header-info">
-            <span class="hero-eyebrow hero-eyebrow--green">MP3 İNDİRİCİ</span>
+            <span class="hero-eyebrow hero-eyebrow--accent">MP3 İNDİRİCİ</span>
             <h1 class="view-title">Spotify &amp; YouTube MP3 İndirici</h1>
-            <p class="view-meta">Çevrimdışı kaydetmek istediğin tek şarkı veya playlist linkini yapıştır; muzik klasörüne MP3 olarak insin.</p>
+            <p class="view-meta">Çevrimdışı kaydetmek istediğin tek şarkı veya playlist linkini yapıştır; müzik klasörüne MP3 olarak insin.</p>
           </div>
         </header>
 
@@ -348,7 +372,7 @@
             <div class="dl-options">
               <label class="checkbox-label">
                 <input type="checkbox" id="chk-auto-playlist" checked>
-                <span>Playlist indirirken Yusic içinde otomatik playlist oluştur</span>
+                <span>Playlist indirirken Yerel Kitaplık içinde otomatik playlist oluştur</span>
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" id="chk-yt-list" checked>
@@ -373,10 +397,185 @@
           </div>
         </div>
       </section>
+
+      <!-- Tabbed Settings View -->
+      <section class="view view-settings scroller" id="view-settings" aria-label="Ayarlar" hidden>
+        <header class="view-header">
+          <span class="hero-eyebrow hero-eyebrow--accent">TERCİHLER</span>
+          <h1 class="view-title">Ayarlar</h1>
+          <p class="view-meta">Görünüm ölçeği, 10 bantlı ekolayzer, panel düzeni, Spotify ve güncelleme ayarları.</p>
+        </header>
+
+        <div class="settings-tabs">
+          <div class="settings-tablist" id="settings-tablist" role="tablist" aria-label="Ayar kategorileri">
+            <button type="button" role="tab" id="stab-appearance" class="tab-btn" aria-selected="true">Görünüm &amp; Ölçek</button>
+            <button type="button" role="tab" id="stab-audio" class="tab-btn" aria-selected="false">Ses &amp; Ekolayzer</button>
+            <button type="button" role="tab" id="stab-spotify" class="tab-btn" aria-selected="false">Spotify &amp; İndirme</button>
+            <button type="button" role="tab" id="stab-updates" class="tab-btn" aria-selected="false">Güncellemeler</button>
+          </div>
+
+          <!-- Panel 1: Appearance & Scale -->
+          <div role="tabpanel" id="spanel-appearance" aria-labelledby="stab-appearance" tabindex="0">
+            <div class="settings-panel-inner">
+              <div class="settings-card">
+                <div class="settings-card-head">
+                  <div>
+                    <h3>Arayüz Ölçeklendirme Boyutu</h3>
+                    <p>Uygulamadaki tüm yazı, buton ve kartların genel boyutunu büyüt veya küçült.</p>
+                  </div>
+                  <span class="scale-readout" id="ui-scale-label">%100</span>
+                </div>
+                <label for="ui-scale-slider" class="sr-only">Arayüz ölçeklendirme oranı</label>
+                <input type="range" id="ui-scale-slider" class="yusic-slider" min="0.75" max="1.5" step="0.05" value="1" aria-valuetext="%100">
+                <div class="scale-presets" id="ui-scale-presets">
+                  <button type="button" class="preset-chip" data-scale="0.75">%75</button>
+                  <button type="button" class="preset-chip" data-scale="0.85">%85</button>
+                  <button type="button" class="preset-chip" data-scale="0.9">%90</button>
+                  <button type="button" class="preset-chip is-selected" data-scale="1">%100</button>
+                  <button type="button" class="preset-chip" data-scale="1.1">%110</button>
+                  <button type="button" class="preset-chip" data-scale="1.25">%125</button>
+                  <button type="button" class="preset-chip" data-scale="1.4">%140</button>
+                  <button type="button" class="preset-chip" data-scale="1.5">%150</button>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-card-head">
+                  <div>
+                    <h3>Panel Boyutları</h3>
+                    <p>Kenar çubuğu, kitaplık bölmesi ve alt oynatıcı çubuğunun kenarlarından veya köşesinden tutup boyutlandırabilirsin.</p>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-layout">Boyutları Sıfırla</button>
+                </div>
+                <div class="layout-stats-row">
+                  <span class="layout-stat-pill" id="layout-stat-sidebar">Kenar Çubuğu: 288 px</span>
+                  <span class="layout-stat-pill" id="layout-stat-nav">Üst Menü: 204 px</span>
+                  <span class="layout-stat-pill" id="layout-stat-player">Alt Oynatıcı: 90 px</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel 2: Audio & 10-Band Equalizer -->
+          <div role="tabpanel" id="spanel-audio" aria-labelledby="stab-audio" hidden>
+            <div class="settings-panel-inner">
+              <div class="settings-card">
+                <div class="settings-card-head">
+                  <div>
+                    <h3>10 Bantlı Ekolayzer</h3>
+                    <p>Hem yerel müziklerde hem de Spotify akışında canlı olarak frekans dengesini ayarla.</p>
+                  </div>
+                  <div class="eq-head-controls">
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="chk-eq-enabled">
+                      <span>Ekolayzer Etkin</span>
+                    </label>
+                    <button type="button" class="btn btn-ghost btn-xs" id="btn-eq-reset">Sıfırla (0 dB)</button>
+                  </div>
+                </div>
+
+                <div class="eq-presets-row" id="eq-presets-row">
+                  <button type="button" class="preset-chip is-selected" data-eq-preset="flat">Düz</button>
+                  <button type="button" class="preset-chip" data-eq-preset="bass">Bas Güçlendirme</button>
+                  <button type="button" class="preset-chip" data-eq-preset="pop">Pop</button>
+                  <button type="button" class="preset-chip" data-eq-preset="rock">Rock</button>
+                  <button type="button" class="preset-chip" data-eq-preset="electronic">Elektronik</button>
+                  <button type="button" class="preset-chip" data-eq-preset="vocal">Vokal</button>
+                  <button type="button" class="preset-chip" data-eq-preset="acoustic">Akustik</button>
+                  <button type="button" class="preset-chip" data-eq-preset="night">Gece</button>
+                </div>
+
+                <div class="eq-bands-grid" id="eq-bands-grid">
+                  <!-- Rendered dynamically for 10 frequency bands -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel 3: Spotify & Downloads -->
+          <div role="tabpanel" id="spanel-spotify" aria-labelledby="stab-spotify" hidden>
+            <div class="settings-panel-inner">
+              <div class="settings-card">
+                <div class="settings-card-head">
+                  <div>
+                    <h3>Spotify Hesap &amp; Client ID</h3>
+                    <p>Dahili Client ID hazır gelir; dilersen kendi Spotify Developer App kimliğinle değiştirebilirsin.</p>
+                  </div>
+                  <span class="status-badge" id="settings-sp-status">Bağlı Değil</span>
+                </div>
+
+                <div class="settings-field-group">
+                  <label for="settings-sp-client-id" class="field-label">Spotify Client ID</label>
+                  <div class="settings-inline-row">
+                    <input type="text" id="settings-sp-client-id" class="text-input" spellcheck="false" autocomplete="off">
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-settings-sp-save">Kaydet</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-settings-sp-reset">Varsayılan</button>
+                  </div>
+                </div>
+
+                <div class="settings-field-group">
+                  <span class="field-label">Redirect URI</span>
+                  <div class="settings-inline-row">
+                    <code class="inline-code" id="settings-sp-redirect">http://127.0.0.1:43821/callback</code>
+                    <button type="button" class="btn btn-secondary btn-xs" id="btn-settings-sp-copy">Kopyala</button>
+                    <button type="button" class="btn btn-ghost btn-xs" id="btn-settings-sp-dashboard">Spotify Dashboard</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-card-head">
+                  <div>
+                    <h3>Yerel Müzik Klasörü</h3>
+                    <p>Bu klasöre attığın tüm ses dosyaları otomatik olarak Yerel Müzik kütüphanene aktarılır.</p>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-settings-open-folder">Klasörü Aç</button>
+                </div>
+                <code class="path-pill" id="settings-muzik-path"></code>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel 4: Updates & About -->
+          <div role="tabpanel" id="spanel-updates" aria-labelledby="stab-updates" hidden>
+            <div class="settings-panel-inner">
+              <div class="settings-card">
+                <div class="settings-card-head">
+                  <div>
+                    <h3>Uygulama Güncelleme Durumu</h3>
+                    <p id="settings-update-desc">GitHub Releases üzerinden en güncel Yusic sürümünü kontrol et.</p>
+                  </div>
+                  <strong class="scale-readout" id="settings-cur-ver">v1.0.2</strong>
+                </div>
+                <div class="settings-inline-row">
+                  <button type="button" class="btn btn-primary btn-sm" id="btn-settings-check-update">Güncelleme Kontrol Et</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-settings-open-github">GitHub Sayfası</button>
+                </div>
+              </div>
+
+              <div class="settings-card">
+                <h3>Klavye Kısayolları</h3>
+                <div class="shortcuts-grid">
+                  <span><code>Space</code> Oynat / Duraklat</span>
+                  <span><code>← / →</code> 5 sn Geri / İleri</span>
+                  <span><code>Shift + ← / →</code> Önceki / Sonraki</span>
+                  <span><code>M</code> Sesi Kapat / Aç</span>
+                  <span><code>S</code> Karışık Çal</span>
+                  <span><code>R</code> Döngü Modu</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
+    <!-- Horizontal Resizer above Player Bar & Corner Resizer -->
+    <div class="resizer resizer-h resizer-player" id="resizer-player" role="separator" aria-orientation="horizontal" aria-label="Alt oynatıcı yüksekliğini ayarla" title="Sürükleyerek boyutlandır (Çift tık: sıfırla)"></div>
+    <div class="resizer-corner" id="resizer-corner" role="separator" aria-label="Kitaplık köşesini sürükleyerek yeniden boyutlandır" title="Köşeden tutup kitaplık ve oynatıcıyı birlikte boyutlandır"></div>
+
     <!-- Bottom Now-Playing Bar -->
-    <footer class="player-bar" aria-label="Müzik oynatıcı kontrolleri">
+    <footer class="player-bar" id="player-bar" aria-label="Müzik oynatıcı kontrolleri">
       <div class="player-left">
         <div class="now-cover" id="now-cover">
           <span class="now-cover-placeholder" aria-hidden="true">♪</span>
@@ -438,6 +637,13 @@
       </div>
 
       <div class="player-right">
+        <button
+          type="button"
+          class="speed-trigger"
+          id="btn-eq-shortcut"
+          title="Ekolayzer Ayarlarına Git"
+        >EQ</button>
+
         <button
           type="button"
           class="speed-trigger"
@@ -680,7 +886,7 @@
         <div class="update-version-grid">
           <div class="update-ver-box">
             <span class="field-label">Mevcut Sürüm</span>
-            <strong id="update-cur-ver">v1.0.1</strong>
+            <strong id="update-cur-ver">v1.0.2</strong>
           </div>
           <div class="update-ver-box">
             <span class="field-label">GitHub Son Sürüm</span>

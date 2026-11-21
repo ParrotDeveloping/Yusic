@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { YusicStore } from '../src/main/store.js';
+import { DEFAULT_SPOTIFY_CLIENT_ID, YusicStore } from '../src/main/store.js';
 
 test('YusicStore playlist CRUD, reordering, settings, and persistence', (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'yusic-store-'));
@@ -99,4 +99,47 @@ test('YusicStore persists playlist covers/viewModes, track overrides, external p
   assert.equal(reloaded.getSpotifyAuth().clientId, 'my-client-id');
   assert.equal(reloaded.getSpotifyAuth().accessToken, '');
   assert.equal(reloaded.getSpotifyAuth().user, null);
+});
+
+test('YusicStore enforces v1.0.2 uiScale, 10-band eq, layout bounds, and default Spotify clientId', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'yusic-store-v102-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const dbPath = path.join(dir, 'yusic-db.json');
+  const store = new YusicStore(dbPath);
+
+  assert.equal(store.getSpotifyAuth().clientId, DEFAULT_SPOTIFY_CLIENT_ID);
+  assert.equal(DEFAULT_SPOTIFY_CLIENT_ID, 'f7dab3d9716247db8368240742febbf5');
+
+  const updated = store.updateSettings({
+    uiScale: 2.4,
+    eq: {
+      enabled: true,
+      preset: 'bass',
+      bands: [20, -25, 4.5, 2, 0.5, 0, 0, 0.5, 1, 1.5]
+    },
+    layout: {
+      sidebarWidth: 999,
+      sidebarNavHeight: 50,
+      playerBarHeight: 112
+    }
+  });
+
+  assert.equal(updated.uiScale, 1.5);
+  assert.equal(updated.eq.enabled, true);
+  assert.equal(updated.eq.preset, 'bass');
+  assert.equal(updated.eq.bands.length, 10);
+  assert.equal(updated.eq.bands[0], 12);
+  assert.equal(updated.eq.bands[1], -12);
+  assert.equal(updated.eq.bands[2], 4.5);
+  assert.deepEqual(updated.layout, {
+    sidebarWidth: 520,
+    sidebarNavHeight: 145,
+    playerBarHeight: 112
+  });
+
+  const reloaded = new YusicStore(dbPath);
+  assert.equal(reloaded.getSettings().uiScale, 1.5);
+  assert.deepEqual(reloaded.getSettings().layout, updated.layout);
+  assert.deepEqual(reloaded.getSettings().eq, updated.eq);
 });

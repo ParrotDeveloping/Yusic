@@ -9,18 +9,51 @@ import { compareSemver } from '../main/versionUtils.js';
 
 const audio = document.getElementById('audio-player');
 
+const DEFAULT_LAYOUT = Object.freeze({
+  sidebarWidth: 288,
+  sidebarNavHeight: 204,
+  playerBarHeight: 90
+});
+
+const EQ_FREQUENCIES = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+const EQ_LABELS = ['32Hz', '64Hz', '125Hz', '250Hz', '500Hz', '1kHz', '2kHz', '4kHz', '8kHz', '16kHz'];
+const EQ_PRESETS = Object.freeze({
+  flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  bass: [6, 5, 4, 2, 0.5, 0, 0, 0.5, 1, 1.5],
+  pop: [-1.5, 1.5, 3.5, 4.5, 3, 0, -1, -1.5, 1.5, 2.5],
+  rock: [4.5, 3.5, 2, 0.5, -1, -0.5, 1.5, 3.5, 4.5, 5],
+  electronic: [5, 4, 1.5, 0, -1.5, 1.5, 0.5, 2.5, 4.5, 5],
+  vocal: [-2.5, -2, -1, 1.5, 4, 4.5, 3.5, 1.5, -0.5, -1.5],
+  acoustic: [3.5, 2.5, 1.5, 0.5, 1.5, 1.5, 2.5, 3.5, 2.5, 1.5],
+  night: [2.5, 2, 1, 0, -1, 0, 1, 1.5, 0, -1]
+});
+
 const els = {
-  navAllMusic: document.getElementById('nav-all-music'),
+  appShell: document.getElementById('app-shell'),
+  sidebar: document.getElementById('sidebar'),
+  sidebarNavCard: document.getElementById('sidebar-nav-card'),
+  sidebarLibraryCard: document.getElementById('sidebar-library-card'),
+  resizerSidebarSplit: document.getElementById('resizer-sidebar-split'),
+  resizerSidebar: document.getElementById('resizer-sidebar'),
+  resizerPlayer: document.getElementById('resizer-player'),
+  resizerCorner: document.getElementById('resizer-corner'),
+
+  navLocal: document.getElementById('nav-local'),
   navSpotify: document.getElementById('nav-spotify'),
   navDownloader: document.getElementById('nav-downloader'),
+  navSettings: document.getElementById('nav-settings'),
   badgeAllCount: document.getElementById('badge-all-count'),
   badgeSpotifyStatus: document.getElementById('badge-spotify-status'),
   badgeDlActive: document.getElementById('badge-dl-active'),
 
+  sidebarLibraryHeading: document.getElementById('sidebar-library-heading'),
+  localLibHeadBtns: document.getElementById('local-lib-head-btns'),
+  spotifyLibHeadBtns: document.getElementById('spotify-lib-head-btns'),
+  btnNewPlaylist: document.getElementById('btn-new-playlist'),
   btnOpenFolder: document.getElementById('btn-open-folder'),
   btnRescan: document.getElementById('btn-rescan'),
   btnPickFiles: document.getElementById('btn-pick-files'),
-  btnNewPlaylist: document.getElementById('btn-new-playlist'),
+  btnSpSidebarRefresh: document.getElementById('btn-sp-sidebar-refresh'),
   sidebarPlaylists: document.getElementById('sidebar-playlists'),
   appVersionLabel: document.getElementById('app-version-label'),
   btnCheckUpdates: document.getElementById('btn-check-updates'),
@@ -38,7 +71,9 @@ const els = {
   viewLibrary: document.getElementById('view-library'),
   viewSpotify: document.getElementById('view-spotify'),
   viewDownloader: document.getElementById('view-downloader'),
+  viewSettings: document.getElementById('view-settings'),
 
+  // Local Library View
   libHero: document.getElementById('lib-hero'),
   libHeroCoverArt: document.getElementById('lib-hero-cover-art'),
   btnHeroPickCover: document.getElementById('btn-hero-pick-cover'),
@@ -67,23 +102,27 @@ const els = {
   btnEmptyGoSpotify: document.getElementById('btn-empty-go-spotify'),
 
   // Spotify View
-  spPublicForm: document.getElementById('sp-public-form'),
-  spPublicUrl: document.getElementById('sp-public-url'),
+  spTablist: document.getElementById('sp-tablist'),
+  spTabLiked: document.getElementById('sp-tab-liked'),
+  spTabPlaylists: document.getElementById('sp-tab-playlists'),
+  spTabRecent: document.getElementById('sp-tab-recent'),
+  spTabSearch: document.getElementById('sp-tab-search'),
+  spTabPublic: document.getElementById('sp-tab-public'),
   spUserBar: document.getElementById('sp-user-bar'),
   spUserAvatar: document.getElementById('sp-user-avatar'),
   spUserName: document.getElementById('sp-user-name'),
   btnSpRefresh: document.getElementById('btn-sp-refresh'),
   btnSpLogout: document.getElementById('btn-sp-logout'),
   spConnectCard: document.getElementById('sp-connect-card'),
-  btnSpDashboard: document.getElementById('btn-sp-dashboard'),
-  spRedirectUriCode: document.getElementById('sp-redirect-uri-code'),
-  btnSpCopyRedirect: document.getElementById('btn-sp-copy-redirect'),
-  spLoginForm: document.getElementById('sp-login-form'),
-  spClientIdInput: document.getElementById('sp-client-id-input'),
   btnSpLogin: document.getElementById('btn-sp-login'),
-  spSubnav: document.getElementById('sp-subnav'),
+  btnSpGoPublic: document.getElementById('btn-sp-go-public'),
+  btnSpOpenSettings: document.getElementById('btn-sp-open-settings'),
+  spSearchBar: document.getElementById('sp-search-bar'),
   spSearchForm: document.getElementById('sp-search-form'),
   spSearchInput: document.getElementById('sp-search-input'),
+  spPublicBar: document.getElementById('sp-public-bar'),
+  spPublicForm: document.getElementById('sp-public-form'),
+  spPublicUrl: document.getElementById('sp-public-url'),
   spPlaylistsGrid: document.getElementById('sp-playlists-grid'),
   spCollectionArea: document.getElementById('sp-collection-area'),
   spHero: document.getElementById('sp-hero'),
@@ -106,9 +145,10 @@ const els = {
   spLoadMoreWrap: document.getElementById('sp-load-more-wrap'),
   btnSpLoadMore: document.getElementById('btn-sp-load-more'),
 
-  // Downloader
+  // Downloader View
   dlForm: document.getElementById('dl-form'),
   dlUrlInput: document.getElementById('dl-url-input'),
+  btnDlStart: document.getElementById('btn-dl-start'),
   dlDetectPill: document.getElementById('dl-detect-pill'),
   chkAutoPlaylist: document.getElementById('chk-auto-playlist'),
   chkYtList: document.getElementById('chk-yt-list'),
@@ -116,7 +156,42 @@ const els = {
   btnDlClear: document.getElementById('btn-dl-clear'),
   dlJobs: document.getElementById('dl-jobs'),
 
-  // Now Playing
+  // Settings View
+  settingsTablist: document.getElementById('settings-tablist'),
+  stabAppearance: document.getElementById('stab-appearance'),
+  stabAudio: document.getElementById('stab-audio'),
+  stabSpotify: document.getElementById('stab-spotify'),
+  stabUpdates: document.getElementById('stab-updates'),
+  spanelAppearance: document.getElementById('spanel-appearance'),
+  spanelAudio: document.getElementById('spanel-audio'),
+  spanelSpotify: document.getElementById('spanel-spotify'),
+  spanelUpdates: document.getElementById('spanel-updates'),
+  uiScaleLabel: document.getElementById('ui-scale-label'),
+  uiScaleSlider: document.getElementById('ui-scale-slider'),
+  uiScalePresets: document.getElementById('ui-scale-presets'),
+  btnResetLayout: document.getElementById('btn-reset-layout'),
+  layoutStatSidebar: document.getElementById('layout-stat-sidebar'),
+  layoutStatNav: document.getElementById('layout-stat-nav'),
+  layoutStatPlayer: document.getElementById('layout-stat-player'),
+  chkEqEnabled: document.getElementById('chk-eq-enabled'),
+  btnEqReset: document.getElementById('btn-eq-reset'),
+  eqPresetsRow: document.getElementById('eq-presets-row'),
+  eqBandsGrid: document.getElementById('eq-bands-grid'),
+  settingsSpStatus: document.getElementById('settings-sp-status'),
+  settingsSpClientId: document.getElementById('settings-sp-client-id'),
+  btnSettingsSpSave: document.getElementById('btn-settings-sp-save'),
+  btnSettingsSpReset: document.getElementById('btn-settings-sp-reset'),
+  settingsSpRedirect: document.getElementById('settings-sp-redirect'),
+  btnSettingsSpCopy: document.getElementById('btn-settings-sp-copy'),
+  btnSettingsSpDashboard: document.getElementById('btn-settings-sp-dashboard'),
+  settingsMuzikPath: document.getElementById('settings-muzik-path'),
+  btnSettingsOpenFolder: document.getElementById('btn-settings-open-folder'),
+  settingsUpdateDesc: document.getElementById('settings-update-desc'),
+  settingsCurVer: document.getElementById('settings-cur-ver'),
+  btnSettingsCheckUpdate: document.getElementById('btn-settings-check-update'),
+  btnSettingsOpenGithub: document.getElementById('btn-settings-open-github'),
+
+  // Player Bar & Speed Popover
   nowCoverImg: document.getElementById('now-cover-img'),
   nowCoverPlaceholder: document.querySelector('.now-cover-placeholder'),
   nowTitle: document.getElementById('now-title'),
@@ -131,20 +206,26 @@ const els = {
   btnNext: document.getElementById('btn-next'),
   btnRepeat: document.getElementById('btn-repeat'),
   repeatOneBadge: document.getElementById('repeat-one-badge'),
-
   timeCurrent: document.getElementById('time-current'),
   timeTotal: document.getElementById('time-total'),
   seekSlider: document.getElementById('seek-slider'),
 
+  btnEqShortcut: document.getElementById('btn-eq-shortcut'),
   btnSpeedPanel: document.getElementById('btn-speed-panel'),
   speedTriggerSource: document.getElementById('speed-trigger-source'),
   speedTriggerRate: document.getElementById('speed-trigger-rate'),
   speedTriggerPitch: document.getElementById('speed-trigger-pitch'),
+  btnMute: document.getElementById('btn-mute'),
+  iconVolOn: document.getElementById('icon-vol-on'),
+  iconVolOff: document.getElementById('icon-vol-off'),
+  volumeSlider: document.getElementById('volume-slider'),
+
+  speedPopover: document.getElementById('speed-popover'),
   speedPopoverSourceDesc: document.getElementById('speed-popover-source-desc'),
+  btnSpeedReset: document.getElementById('btn-speed-reset'),
   speedValueLabel: document.getElementById('speed-value-label'),
   speedSlider: document.getElementById('speed-slider'),
   speedPresets: document.getElementById('speed-presets'),
-  btnSpeedReset: document.getElementById('btn-speed-reset'),
   pitchPreserve: document.getElementById('pitch-preserve'),
   pitchChange: document.getElementById('pitch-change'),
   pitchHint: document.getElementById('pitch-hint'),
@@ -152,13 +233,9 @@ const els = {
   btnSaveListSpeed: document.getElementById('btn-save-list-speed'),
   btnClearActiveOverride: document.getElementById('btn-clear-active-override'),
 
-  btnMute: document.getElementById('btn-mute'),
-  iconVolOn: document.getElementById('icon-vol-on'),
-  iconVolOff: document.getElementById('icon-vol-off'),
-  volumeSlider: document.getElementById('volume-slider'),
-
   dropOverlay: document.getElementById('drop-overlay'),
 
+  // Dialogs
   playlistDialog: document.getElementById('playlist-dialog'),
   playlistDialogTitle: document.getElementById('playlist-dialog-title'),
   playlistNameInput: document.getElementById('playlist-name-input'),
@@ -210,7 +287,7 @@ const els = {
 
 const state = {
   muzikDir: '',
-  appVersion: '1.0.1',
+  appVersion: '1.0.2',
   isPackaged: false,
   serverUrl: '',
   serverToken: '',
@@ -235,10 +312,18 @@ const state = {
     repeatMode: 'off',
     autoCreatePlaylistOnDownload: true,
     downloadYoutubePlaylistOnWatch: true,
-    libraryViewMode: 'list'
+    libraryViewMode: 'list',
+    uiScale: 1.0,
+    eq: {
+      enabled: false,
+      preset: 'flat',
+      bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    layout: { ...DEFAULT_LAYOUT }
   },
 
-  viewTab: 'library', // 'library' | 'spotify' | 'downloader'
+  viewTab: 'library', // 'library' | 'spotify' | 'downloader' | 'settings'
+  settingsTab: 'appearance', // 'appearance' | 'audio' | 'spotify' | 'updates'
   activePlaylistId: null,
   searchQuery: '',
   sortBy: 'title',
@@ -280,9 +365,11 @@ const state = {
 
 let settingsSaveTimer = null;
 let audioCtx = null;
+let eqFilters = [];
 let analyserNode = null;
 let analyserData = null;
 let visualizerRaf = 0;
+let playRequestToken = 0;
 
 function formatTime(sec) {
   if (!Number.isFinite(sec) || sec < 0) return '0:00';
@@ -298,6 +385,18 @@ function formatTotalDuration(totalSec) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${h} sa ${m} dk`;
+}
+
+function clampInt(val, min, max, fallback) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.round(Math.min(max, Math.max(min, n)));
+}
+
+function clampScale(val) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return 1.0;
+  return Math.round(Math.min(1.5, Math.max(0.75, n)) * 100) / 100;
 }
 
 function getAnyTrackById(id) {
@@ -360,7 +459,7 @@ function saveSettingsPatch(patch, immediate = false) {
   }, 220);
 }
 
-/* ---------------- Toast Notifications (persistent-toast-notifications) ---------------- */
+/* ---------------- Toast Notifications ---------------- */
 function restackToasts() {
   const openToasts = Array.from(els.toastRegion.querySelectorAll('.toast'));
   openToasts.forEach((node, idx) => {
@@ -409,48 +508,400 @@ function showToast(message, variant = 'info', durationMs = 4200) {
         scheduleHide();
         return;
       }
-      try {
-        toast.hidePopover();
-      } catch {
-        cleanup();
+      if (toast.isConnected) {
+        try {
+          toast.hidePopover();
+        } catch {
+          cleanup();
+        }
       }
     }, durationMs);
   };
 
   toast.addEventListener('toggle', (e) => {
-    if (e.newState === 'closed') {
-      const wasFocused = toast.contains(document.activeElement);
-      const nextToast = toast.nextElementSibling || toast.previousElementSibling;
+    if (e.newState === 'open') {
+      restackToasts();
+      scheduleHide();
+    } else {
       cleanup();
-      if (wasFocused) {
-        const nextBtn = nextToast?.querySelector('.toast-close');
-        if (nextBtn instanceof HTMLElement) nextBtn.focus();
-        else if (previousFocus && previousFocus.isConnected) previousFocus.focus();
+      if (
+        previousFocus &&
+        previousFocus.isConnected &&
+        (document.activeElement === document.body || !document.activeElement)
+      ) {
+        previousFocus.focus({ preventScroll: true });
       }
     }
   });
 
-  toast.addEventListener('focusin', () => {
-    if (timer) clearTimeout(timer);
+  toast.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      try {
+        toast.hidePopover();
+      } catch {
+        cleanup();
+      }
+    }
   });
-  toast.addEventListener('focusout', () => scheduleHide());
-  toast.addEventListener('mouseenter', () => {
-    if (timer) clearTimeout(timer);
-  });
-  toast.addEventListener('mouseleave', () => scheduleHide());
 
-  restackToasts();
+  els.ariaLiveRegion.textContent = message;
+
   try {
     toast.showPopover();
   } catch {
-    toast.classList.add(':popover-open');
+    restackToasts();
+    scheduleHide();
   }
-  scheduleHide();
+}
 
-  if (typeof document.ariaNotify === 'function') {
-    document.ariaNotify(message);
-  } else if (els.ariaLiveRegion) {
-    els.ariaLiveRegion.textContent = message;
+/* ---------------- Accessible Tablists ---------------- */
+function bindTablistKeyboard(tablistEl, activateTabFn) {
+  if (!tablistEl) return;
+  tablistEl.addEventListener('keydown', (e) => {
+    const tabs = Array.from(tablistEl.querySelectorAll('[role="tab"]'));
+    if (tabs.length === 0) return;
+    const idx = tabs.indexOf(document.activeElement);
+    if (idx === -1) return;
+
+    let nextIdx = -1;
+    if (e.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = tabs.length - 1;
+    else return;
+
+    e.preventDefault();
+    const target = tabs[nextIdx];
+    target.focus();
+    target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    activateTabFn(target);
+  });
+}
+
+function syncSettingsTabs() {
+  const mapping = [
+    { key: 'appearance', tab: els.stabAppearance, panel: els.spanelAppearance },
+    { key: 'audio', tab: els.stabAudio, panel: els.spanelAudio },
+    { key: 'spotify', tab: els.stabSpotify, panel: els.spanelSpotify },
+    { key: 'updates', tab: els.stabUpdates, panel: els.spanelUpdates }
+  ];
+
+  for (const item of mapping) {
+    const active = state.settingsTab === item.key;
+    item.tab.setAttribute('aria-selected', String(active));
+    item.tab.setAttribute('tabindex', active ? '0' : '-1');
+    item.panel.hidden = !active;
+    if (active) {
+      item.panel.setAttribute('tabindex', '0');
+    } else {
+      item.panel.removeAttribute('tabindex');
+    }
+  }
+}
+
+/* ---------------- UI Scaling & Resizable Panel Layout ---------------- */
+function applyUiScale(rawScale, persist = false, immediate = false) {
+  const scale = clampScale(rawScale);
+  state.settings.uiScale = scale;
+
+  try {
+    window.yusic.setZoomFactor(scale);
+  } catch {
+    // Ignore zoom errors in non-Electron test environments
+  }
+
+  const pctText = `%${Math.round(scale * 100)}`;
+  els.uiScaleSlider.value = String(scale);
+  els.uiScaleLabel.textContent = pctText;
+  syncSliderVisual(els.uiScaleSlider, pctText);
+
+  for (const chip of els.uiScalePresets.querySelectorAll('.preset-chip')) {
+    const chipScale = Number(chip.dataset.scale);
+    chip.classList.toggle('is-selected', Math.abs(chipScale - scale) < 0.015);
+  }
+
+  if (persist) {
+    saveSettingsPatch({ uiScale: scale }, immediate);
+  }
+}
+
+function sanitizeLayoutValues(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  return {
+    sidebarWidth: clampInt(r.sidebarWidth, 220, 520, DEFAULT_LAYOUT.sidebarWidth),
+    sidebarNavHeight: clampInt(r.sidebarNavHeight, 145, 360, DEFAULT_LAYOUT.sidebarNavHeight),
+    playerBarHeight: clampInt(r.playerBarHeight, 76, 140, DEFAULT_LAYOUT.playerBarHeight)
+  };
+}
+
+function applyLayout(rawLayout) {
+  const layout = sanitizeLayoutValues(rawLayout);
+  state.settings.layout = layout;
+  els.appShell.style.setProperty('--sidebar-width', `${layout.sidebarWidth}px`);
+  els.appShell.style.setProperty('--sidebar-nav-height', `${layout.sidebarNavHeight}px`);
+  els.appShell.style.setProperty('--player-bar-height', `${layout.playerBarHeight}px`);
+
+  els.layoutStatSidebar.textContent = `Kenar Çubuğu: ${layout.sidebarWidth} px`;
+  els.layoutStatNav.textContent = `Üst Menü: ${layout.sidebarNavHeight} px`;
+  els.layoutStatPlayer.textContent = `Alt Oynatıcı: ${layout.playerBarHeight} px`;
+}
+
+function attachPointerResizer(handleEl, onStart, onMove, onDoubleClick) {
+  if (!handleEl) return;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let snapshot = null;
+
+  handleEl.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    snapshot = onStart();
+    handleEl.classList.add('is-dragging');
+    try {
+      handleEl.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore pointer capture errors
+    }
+  });
+
+  handleEl.addEventListener('pointermove', (e) => {
+    if (!dragging || !snapshot) return;
+    onMove(e.clientX - startX, e.clientY - startY, snapshot);
+  });
+
+  const endDrag = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    handleEl.classList.remove('is-dragging');
+    try {
+      if (handleEl.hasPointerCapture(e.pointerId)) {
+        handleEl.releasePointerCapture(e.pointerId);
+      }
+    } catch {
+      // Ignore
+    }
+    saveSettingsPatch({ layout: { ...state.settings.layout } }, true);
+  };
+
+  handleEl.addEventListener('pointerup', endDrag);
+  handleEl.addEventListener('pointercancel', endDrag);
+  handleEl.addEventListener('dblclick', () => {
+    onDoubleClick();
+    saveSettingsPatch({ layout: { ...state.settings.layout } }, true);
+  });
+}
+
+function setupPanelResizers() {
+  attachPointerResizer(
+    els.resizerSidebar,
+    () => ({ ...state.settings.layout }),
+    (dx, _dy, snap) => applyLayout({ ...snap, sidebarWidth: snap.sidebarWidth + dx }),
+    () => applyLayout({ ...state.settings.layout, sidebarWidth: DEFAULT_LAYOUT.sidebarWidth })
+  );
+
+  attachPointerResizer(
+    els.resizerSidebarSplit,
+    () => ({ ...state.settings.layout }),
+    (_dx, dy, snap) => applyLayout({ ...snap, sidebarNavHeight: snap.sidebarNavHeight + dy }),
+    () => applyLayout({ ...state.settings.layout, sidebarNavHeight: DEFAULT_LAYOUT.sidebarNavHeight })
+  );
+
+  attachPointerResizer(
+    els.resizerPlayer,
+    () => ({ ...state.settings.layout }),
+    (_dx, dy, snap) => applyLayout({ ...snap, playerBarHeight: snap.playerBarHeight - dy }),
+    () => applyLayout({ ...state.settings.layout, playerBarHeight: DEFAULT_LAYOUT.playerBarHeight })
+  );
+
+  attachPointerResizer(
+    els.resizerCorner,
+    () => ({ ...state.settings.layout }),
+    (dx, dy, snap) =>
+      applyLayout({
+        ...snap,
+        sidebarWidth: snap.sidebarWidth + dx,
+        playerBarHeight: snap.playerBarHeight - dy
+      }),
+    () => applyLayout({ ...DEFAULT_LAYOUT })
+  );
+}
+
+/* ---------------- Web Audio Graph (10-Band EQ + Visualizer) ---------------- */
+function ensureEqStateShape() {
+  const eq = state.settings.eq || {};
+  const bands = EQ_FREQUENCIES.map((_, idx) => {
+    const v = Number(eq.bands?.[idx]);
+    return Number.isFinite(v) ? Math.round(Math.min(12, Math.max(-12, v)) * 10) / 10 : 0;
+  });
+  state.settings.eq = {
+    enabled: Boolean(eq.enabled),
+    preset: String(eq.preset || 'flat'),
+    bands
+  };
+  return state.settings.eq;
+}
+
+function buildEqBandsUI() {
+  els.eqBandsGrid.innerHTML = '';
+  EQ_FREQUENCIES.forEach((freq, idx) => {
+    const col = document.createElement('div');
+    col.className = 'eq-band-col';
+
+    const dbLabel = document.createElement('span');
+    dbLabel.className = 'eq-band-db';
+    dbLabel.textContent = '0 dB';
+
+    const sliderBox = document.createElement('div');
+    sliderBox.className = 'eq-slider-box';
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'yusic-slider eq-band-slider';
+    slider.min = '-12';
+    slider.max = '12';
+    slider.step = '0.5';
+    slider.value = '0';
+    slider.dataset.bandIndex = String(idx);
+    slider.setAttribute('aria-label', `${EQ_LABELS[idx]} frekans bandı`);
+
+    slider.addEventListener('input', () => {
+      const val = Math.round(Math.min(12, Math.max(-12, Number(slider.value) || 0)) * 10) / 10;
+      const eq = ensureEqStateShape();
+      eq.bands[idx] = val;
+      eq.preset = 'custom';
+      applyEqToAudioGraph();
+      renderEqUI();
+      saveSettingsPatch({ eq: { ...eq, bands: eq.bands.slice() } }, false);
+    });
+
+    sliderBox.appendChild(slider);
+
+    const freqLabel = document.createElement('span');
+    freqLabel.className = 'eq-band-freq';
+    freqLabel.textContent = EQ_LABELS[idx];
+
+    col.append(dbLabel, sliderBox, freqLabel);
+    els.eqBandsGrid.appendChild(col);
+  });
+}
+
+function applyEqToAudioGraph() {
+  const eq = ensureEqStateShape();
+  if (!audioCtx || eqFilters.length !== EQ_FREQUENCIES.length) return;
+  const now = audioCtx.currentTime;
+  eqFilters.forEach((filter, idx) => {
+    const gain = eq.enabled ? eq.bands[idx] : 0;
+    try {
+      filter.gain.setTargetAtTime(gain, now, 0.015);
+    } catch {
+      filter.gain.value = gain;
+    }
+  });
+}
+
+function renderEqUI() {
+  const eq = ensureEqStateShape();
+  els.chkEqEnabled.checked = eq.enabled;
+  els.btnEqShortcut.classList.toggle('is-modified', eq.enabled);
+
+  for (const chip of els.eqPresetsRow.querySelectorAll('.preset-chip')) {
+    chip.classList.toggle('is-selected', chip.dataset.eqPreset === eq.preset);
+  }
+
+  const sliders = els.eqBandsGrid.querySelectorAll('.eq-band-slider');
+  const dbLabels = els.eqBandsGrid.querySelectorAll('.eq-band-db');
+  sliders.forEach((slider, idx) => {
+    const val = eq.bands[idx] || 0;
+    slider.value = String(val);
+    const formatted = `${val > 0 ? '+' : ''}${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)} dB`;
+    syncSliderVisual(slider, formatted);
+    if (dbLabels[idx]) dbLabels[idx].textContent = formatted;
+  });
+}
+
+function ensureAudioGraphConnected() {
+  if (audioCtx) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx = new Ctx();
+    const source = audioCtx.createMediaElementSource(audio);
+
+    eqFilters = EQ_FREQUENCIES.map((freq, idx) => {
+      const filter = audioCtx.createBiquadFilter();
+      filter.frequency.value = freq;
+      if (idx === 0) {
+        filter.type = 'lowshelf';
+      } else if (idx === EQ_FREQUENCIES.length - 1) {
+        filter.type = 'highshelf';
+      } else {
+        filter.type = 'peaking';
+        filter.Q.value = 1.4;
+      }
+      return filter;
+    });
+
+    analyserNode = audioCtx.createAnalyser();
+    analyserNode.fftSize = 64;
+    analyserNode.smoothingTimeConstant = 0.78;
+
+    let node = source;
+    for (const filter of eqFilters) {
+      node.connect(filter);
+      node = filter;
+    }
+    node.connect(analyserNode);
+    analyserNode.connect(audioCtx.destination);
+    analyserData = new Uint8Array(analyserNode.frequencyBinCount);
+
+    applyEqToAudioGraph();
+  } catch {
+    audioCtx = null;
+    eqFilters = [];
+    analyserNode = null;
+  }
+}
+
+function drawVisualizer() {
+  const canvas = els.visualizerCanvas;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const barCount = 12;
+  const gap = 2;
+  const barW = (canvas.width - gap * (barCount - 1)) / barCount;
+
+  if (!analyserNode || audio.paused) {
+    for (let i = 0; i < barCount; i++) {
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.28)';
+      ctx.fillRect(i * (barW + gap), canvas.height - 3, barW, 3);
+    }
+    visualizerRaf = 0;
+    return;
+  }
+
+  analyserNode.getByteFrequencyData(analyserData);
+  for (let i = 0; i < barCount; i++) {
+    const val = analyserData[i + 1] || 0;
+    const h = Math.max(3, (val / 255) * canvas.height);
+    const grad = ctx.createLinearGradient(0, canvas.height - h, 0, canvas.height);
+    grad.addColorStop(0, '#38bdf8');
+    grad.addColorStop(1, '#1d4ed8');
+    ctx.fillStyle = grad;
+    ctx.fillRect(i * (barW + gap), canvas.height - h, barW, h);
+  }
+  visualizerRaf = requestAnimationFrame(drawVisualizer);
+}
+
+function kickVisualizer() {
+  if (!visualizerRaf) {
+    visualizerRaf = requestAnimationFrame(drawVisualizer);
   }
 }
 
@@ -688,12 +1139,12 @@ function renderAddToPlaylistModalList() {
   }
 }
 
-/* ---------------- Speed Cascade, Pitch, Volume, Repeat, Shuffle ---------------- */
+/* ---------------- Speed, Volume & Transport ---------------- */
 function getListSpeedOverride(listId) {
   if (!listId) return null;
   const localPl = state.playlists.find((p) => p.id === listId);
   if (localPl?.speedOverride) return localPl.speedOverride;
-  const extPref = state.externalListPrefs[listId];
+  const extPref = state.externalListPrefs?.[listId];
   if (extPref?.speedOverride) return extPref.speedOverride;
   return null;
 }
@@ -727,11 +1178,6 @@ function applySpeedAndPitch() {
   els.speedTriggerRate.textContent = formatted;
   els.speedTriggerPitch.textContent = preserve ? 'Sabit Ton' : 'Ton Değişir';
 
-  const sourceLabels = {
-    track: 'Şarkı Özel',
-    playlist: 'Liste Özel',
-    global: 'Genel Hız'
-  };
   els.speedTriggerSource.hidden = eff.source === 'global';
   els.speedTriggerSource.textContent = eff.source === 'track' ? 'Şarkı' : 'Liste';
   els.speedPopoverSourceDesc.textContent =
@@ -794,65 +1240,7 @@ function applyTransportState() {
   els.btnPlayPause.setAttribute('aria-label', isPlaying ? 'Duraklat' : 'Oynat');
 }
 
-/* ---------------- Web Audio Visualizer ---------------- */
-function ensureVisualizerConnected() {
-  if (audioCtx) return;
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    audioCtx = new Ctx();
-    const source = audioCtx.createMediaElementSource(audio);
-    analyserNode = audioCtx.createAnalyser();
-    analyserNode.fftSize = 64;
-    analyserNode.smoothingTimeConstant = 0.78;
-    source.connect(analyserNode);
-    analyserNode.connect(audioCtx.destination);
-    analyserData = new Uint8Array(analyserNode.frequencyBinCount);
-  } catch {
-    audioCtx = null;
-    analyserNode = null;
-  }
-}
-
-function drawVisualizer() {
-  const canvas = els.visualizerCanvas;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const barCount = 12;
-  const gap = 2;
-  const barW = (canvas.width - gap * (barCount - 1)) / barCount;
-
-  if (!analyserNode || audio.paused) {
-    for (let i = 0; i < barCount; i++) {
-      ctx.fillStyle = 'rgba(30, 215, 96, 0.25)';
-      ctx.fillRect(i * (barW + gap), canvas.height - 3, barW, 3);
-    }
-    visualizerRaf = 0;
-    return;
-  }
-
-  analyserNode.getByteFrequencyData(analyserData);
-  for (let i = 0; i < barCount; i++) {
-    const val = analyserData[i + 1] || 0;
-    const h = Math.max(3, (val / 255) * canvas.height);
-    const grad = ctx.createLinearGradient(0, canvas.height - h, 0, canvas.height);
-    grad.addColorStop(0, '#1ed760');
-    grad.addColorStop(1, '#14532d');
-    ctx.fillStyle = grad;
-    ctx.fillRect(i * (barW + gap), canvas.height - h, barW, h);
-  }
-  visualizerRaf = requestAnimationFrame(drawVisualizer);
-}
-
-function kickVisualizer() {
-  if (!visualizerRaf) {
-    visualizerRaf = requestAnimationFrame(drawVisualizer);
-  }
-}
-
-/* ---------------- Playback Engine ---------------- */
+/* ---------------- Playback Engine (AbortError Race-Guarded) ---------------- */
 function setQueueAndPlay(orderedIds, startTrackId = null, queuePlaylistId = null) {
   const validIds = orderedIds.filter((id) => Boolean(getAnyTrackById(id)));
   if (validIds.length === 0) {
@@ -875,6 +1263,8 @@ function setQueueAndPlay(orderedIds, startTrackId = null, queuePlaylistId = null
 }
 
 async function playAtQueueIndex(index) {
+  const reqToken = ++playRequestToken;
+
   if (index < 0 || index >= state.queueIds.length) {
     audio.pause();
     applyTransportState();
@@ -889,22 +1279,25 @@ async function playAtQueueIndex(index) {
   updateNowPlayingUI(track, track.source === 'spotify');
   highlightPlayingRows();
 
+  // Pause cleanly before reassigning src to prevent AbortError storms on rapid clicks
+  audio.pause();
   audio.src = audioUrlForTrack(track);
   applySpeedAndPitch();
   applyVolume();
 
-  ensureVisualizerConnected();
+  ensureAudioGraphConnected();
   if (audioCtx && audioCtx.state === 'suspended') {
     audioCtx.resume().catch(() => {});
   }
 
   try {
     await audio.play();
+    if (reqToken !== playRequestToken) return;
+
     updateNowPlayingUI(track, false);
     applySpeedAndPitch();
     kickVisualizer();
 
-    // Prefetch next Spotify track if applicable
     const nextIdx = getNextIndex(state.queueIds.length, index, state.settings.repeatMode, true);
     if (nextIdx >= 0 && nextIdx !== index) {
       const nextTrack = getAnyTrackById(state.queueIds[nextIdx]);
@@ -913,10 +1306,21 @@ async function playAtQueueIndex(index) {
       }
     }
   } catch (err) {
+    if (reqToken !== playRequestToken) return;
+    const msg = String(err?.message || '');
+    if (
+      err?.name === 'AbortError' ||
+      /interrupted by a (new load|call to pause)/i.test(msg)
+    ) {
+      return;
+    }
     updateNowPlayingUI(track, false);
-    showToast(`Şarkı çalınamadı: ${err?.message || 'Bilinmeyen hata'}`, 'error');
+    showToast(`Şarkı çalınamadı: ${msg || 'Bilinmeyen hata'}`, 'error');
   }
-  applyTransportState();
+
+  if (reqToken === playRequestToken) {
+    applyTransportState();
+  }
 }
 
 function updateNowPlayingUI(track, isConnecting = false) {
@@ -1007,23 +1411,29 @@ function handlePrev() {
 
 function togglePlayPause() {
   if (!state.currentTrackId) {
+    if (state.viewTab === 'spotify' && state.spotifyCollection.tracks.length > 0) {
+      setQueueAndPlay(
+        state.spotifyCollection.tracks.map((t) => t.id),
+        state.spotifyCollection.tracks[0].id,
+        state.spotifyCollection.id
+      );
+      return;
+    }
     const visible = getVisibleTracks();
     if (visible.length > 0) {
       setQueueAndPlay(visible.map((t) => t.id), visible[0].id, state.activePlaylistId);
     }
     return;
   }
+  ensureAudioGraphConnected();
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
   if (audio.paused) {
-    ensureVisualizerConnected();
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-    audio.play().then(() => {
-      applySpeedAndPitch();
-      kickVisualizer();
-      applyTransportState();
-    }).catch(() => {});
+    audio.play().catch(() => {});
+    kickVisualizer();
   } else {
     audio.pause();
-    applyTransportState();
   }
 }
 
@@ -1045,16 +1455,16 @@ function toggleShuffle() {
 
 function cycleRepeatMode() {
   const order = ['off', 'all', 'one'];
-  const currentIdx = order.indexOf(state.settings.repeatMode || 'off');
-  const nextMode = order[(currentIdx + 1) % order.length];
+  const idx = order.indexOf(state.settings.repeatMode || 'off');
+  const nextMode = order[(idx + 1) % order.length];
   saveSettingsPatch({ repeatMode: nextMode }, true);
   applyTransportState();
 }
 
-/* ---------------- Hero Cover & Shared Track Collection Renderer ---------------- */
+/* ---------------- Shared Hero Cover & Track Collection Renderer ---------------- */
 function renderHeroCoverArt(targetEl, { customCoverFile = null, spotifyCoverUrl = '', tracks = [], isLiked = false }) {
   targetEl.innerHTML = '';
-  targetEl.className = isLiked ? 'hero-cover-art hero-cover-art--liked' : 'hero-cover-art';
+  targetEl.classList.toggle('hero-cover-art--liked', Boolean(isLiked && !customCoverFile));
 
   if (customCoverFile) {
     const img = document.createElement('img');
@@ -1077,47 +1487,38 @@ function renderHeroCoverArt(targetEl, { customCoverFile = null, spotifyCoverUrl 
     return;
   }
 
-  const uniqueCovers = [];
-  const seen = new Set();
+  const covers = [];
   for (const t of tracks) {
-    const c = coverUrlForTrack(t);
-    if (c && !seen.has(c)) {
-      seen.add(c);
-      uniqueCovers.push(c);
-      if (uniqueCovers.length === 4) break;
-    }
+    const url = coverUrlForTrack(t);
+    if (url && !covers.includes(url)) covers.push(url);
+    if (covers.length >= 4) break;
   }
 
-  if (uniqueCovers.length === 1) {
+  if (covers.length === 1) {
     const img = document.createElement('img');
-    img.src = uniqueCovers[0];
+    img.src = covers[0];
     img.alt = '';
     targetEl.appendChild(img);
-    return;
-  }
-
-  if (uniqueCovers.length >= 2) {
-    const grid = document.createElement('div');
-    grid.className = 'hero-collage';
+  } else if (covers.length >= 2) {
+    const collage = document.createElement('div');
+    collage.className = 'hero-collage';
     for (let i = 0; i < 4; i++) {
-      const c = uniqueCovers[i];
-      if (c) {
+      if (covers[i]) {
         const img = document.createElement('img');
-        img.src = c;
+        img.src = covers[i];
         img.alt = '';
-        grid.appendChild(img);
+        collage.appendChild(img);
       } else {
         const tile = document.createElement('div');
         tile.className = 'hero-collage-tile';
         tile.textContent = '♪';
-        grid.appendChild(tile);
+        collage.appendChild(tile);
       }
     }
-    targetEl.appendChild(grid);
-    return;
+    targetEl.appendChild(collage);
+  } else {
+    targetEl.textContent = '♪';
   }
-
-  targetEl.textContent = '♪';
 }
 
 function renderTrackCollection({
@@ -1237,7 +1638,6 @@ function renderTrackCollection({
       return;
     }
 
-    // List or Compact row
     const row = document.createElement('div');
     row.className = 'track-row';
     row.setAttribute('role', 'listitem');
@@ -1430,64 +1830,55 @@ function renderTrackCollection({
 }
 
 async function downloadSpotifyTrackOffline(track) {
-  if (!track?.spotifyUrl && !track?.spotifyId) {
-    showToast('Bu parça için indirilebilir Spotify bağlantısı yok.', 'error');
+  const url = track.externalUrl;
+  if (!url) {
+    showToast('Bu şarkı için Spotify bağlantısı bulunamadı.', 'error');
     return;
   }
-  const url = track.spotifyUrl || `https://open.spotify.com/track/${track.spotifyId}`;
   try {
-    const job = await window.yusic.startDownload(url, { autoCreatePlaylist: false });
-    state.downloads.unshift(job);
+    const job = await window.yusic.startDownload(url, { createPlaylist: false });
+    if (!state.downloads.some((j) => j.id === job.id)) {
+      state.downloads.unshift(job);
+    }
+    showToast(`"${track.title}" MP3 indirme kuyruğuna eklendi.`, 'success');
     renderSidebar();
-    showToast(`MP3 indiriliyor: ${track.title}`, 'success');
   } catch (err) {
     showToast(err?.message || 'İndirme başlatılamadı.', 'error');
   }
 }
 
-/* ---------------- Library & Sidebar Rendering ---------------- */
+/* ---------------- Local Library View ---------------- */
 function getActivePlaylist() {
   if (!state.activePlaylistId) return null;
   return state.playlists.find((p) => p.id === state.activePlaylistId) || null;
 }
 
 function getVisibleTracks() {
-  const activePl = getActivePlaylist();
-  let list;
-  if (activePl) {
-    list = activePl.trackIds.map((id) => state.trackMap.get(id)).filter(Boolean);
+  const pl = getActivePlaylist();
+  let base;
+  if (pl) {
+    base = pl.trackIds.map((id) => state.trackMap.get(id)).filter(Boolean);
   } else {
-    list = state.tracks.slice();
+    base = state.tracks.slice();
+    const by = state.sortBy;
+    if (by === 'title') base.sort((a, b) => a.title.localeCompare(b.title, 'tr'));
+    else if (by === 'artist') base.sort((a, b) => a.artist.localeCompare(b.artist, 'tr'));
+    else if (by === 'recent') base.sort((a, b) => b.addedAt - a.addedAt);
+    else if (by === 'duration') base.sort((a, b) => (b.duration || 0) - (a.duration || 0));
   }
 
   const q = state.searchQuery.trim().toLocaleLowerCase('tr');
-  if (q) {
-    list = list.filter((t) => {
-      const hay = `${t.title} ${t.artist} ${t.album} ${t.folder}`.toLocaleLowerCase('tr');
-      return hay.includes(q);
-    });
-  }
-
-  if (!activePl) {
-    const sortBy = state.sortBy;
-    list.sort((a, b) => {
-      if (sortBy === 'artist') {
-        const c = a.artist.localeCompare(b.artist, 'tr', { sensitivity: 'base' });
-        return c !== 0 ? c : a.title.localeCompare(b.title, 'tr', { sensitivity: 'base' });
-      }
-      if (sortBy === 'recent') {
-        return (b.mtimeMs || 0) - (a.mtimeMs || 0);
-      }
-      if (sortBy === 'duration') {
-        return (b.duration || 0) - (a.duration || 0);
-      }
-      return a.title.localeCompare(b.title, 'tr', { sensitivity: 'base' });
-    });
-  }
-
-  return list;
+  if (!q) return base;
+  return base.filter((t) => `${t.title} ${t.artist} ${t.album}`.toLocaleLowerCase('tr').includes(q));
 }
 
+function syncViewModeButtons(buttons, activeMode) {
+  for (const btn of buttons) {
+    btn.classList.toggle('is-active', btn.dataset.mode === activeMode);
+  }
+}
+
+/* ---------------- Context-Separated Sidebar Rendering ---------------- */
 function renderSidebar() {
   els.badgeAllCount.textContent = String(state.tracks.length);
   els.badgeSpotifyStatus.hidden = !state.spotifyAuth?.connected;
@@ -1498,91 +1889,155 @@ function renderSidebar() {
   els.badgeDlActive.hidden = activeJobsCount === 0;
   els.badgeDlActive.textContent = String(activeJobsCount);
 
-  els.navAllMusic.classList.toggle(
-    'is-active',
-    state.viewTab === 'library' && !state.activePlaylistId
-  );
+  els.navLocal.classList.toggle('is-active', state.viewTab === 'library');
   els.navSpotify.classList.toggle('is-active', state.viewTab === 'spotify');
   els.navDownloader.classList.toggle('is-active', state.viewTab === 'downloader');
+  els.navSettings.classList.toggle('is-active', state.viewTab === 'settings');
+
+  const isSpotifyMode = state.viewTab === 'spotify';
+  els.sidebarLibraryHeading.textContent = isSpotifyMode ? 'Spotify Kitaplığı' : 'Yerel Kitaplık';
+  els.localLibHeadBtns.hidden = isSpotifyMode;
+  els.spotifyLibHeadBtns.hidden = !isSpotifyMode;
 
   els.sidebarPlaylists.innerHTML = '';
 
-  // Pinned Spotify shortcuts inside "Kitaplığın" when connected
-  if (state.spotifyAuth?.connected) {
-    const likedRow = document.createElement('div');
-    likedRow.className = 'playlist-row';
-    if (state.viewTab === 'spotify' && state.spotifySubTab === 'liked') {
-      likedRow.classList.add('is-active');
-    }
-    const likedBtn = document.createElement('button');
-    likedBtn.type = 'button';
-    likedBtn.className = 'playlist-select-btn';
-    likedBtn.innerHTML = `
-      <span class="pl-mini-cover pl-mini-cover--liked">♥</span>
-      <span class="pl-mini-text">
-        <span class="playlist-name">Beğenilen Şarkılar</span>
-        <span class="playlist-sub">Spotify • Canlı Akış</span>
-      </span>`;
-    likedBtn.addEventListener('click', () => {
-      state.viewTab = 'spotify';
-      state.spotifySubTab = 'liked';
-      loadSpotifyLiked(true);
-      renderAll();
-    });
-    likedRow.appendChild(likedBtn);
-    els.sidebarPlaylists.appendChild(likedRow);
-
-    for (const spl of state.spotifyPlaylists) {
-      const spRow = document.createElement('div');
-      spRow.className = 'playlist-row';
-      if (
-        state.viewTab === 'spotify' &&
-        state.spotifySubTab === 'playlist-detail' &&
-        state.spotifyCollection.id === spl.id
-      ) {
-        spRow.classList.add('is-active');
-      }
-      const spBtn = document.createElement('button');
-      spBtn.type = 'button';
-      spBtn.className = 'playlist-select-btn';
-
-      const thumb = document.createElement('span');
-      thumb.className = 'pl-mini-cover';
-      const extPref = state.externalListPrefs[spl.id];
-      const coverSrc = extPref?.coverFile ? coverFileUrl(extPref.coverFile) : spl.coverUrl;
-      if (coverSrc) {
-        const img = document.createElement('img');
-        img.src = coverSrc;
-        img.alt = '';
-        thumb.appendChild(img);
-      } else {
-        thumb.textContent = '♪';
-      }
-
-      const txt = document.createElement('span');
-      txt.className = 'pl-mini-text';
-      const nm = document.createElement('span');
-      nm.className = 'playlist-name';
-      nm.textContent = spl.name;
-      const sub = document.createElement('span');
-      sub.className = 'playlist-sub';
-      sub.textContent = `Spotify • ${spl.trackCount} şarkı`;
-      txt.append(nm, sub);
-      spBtn.append(thumb, txt);
-      spBtn.addEventListener('click', () => {
-        state.viewTab = 'spotify';
-        openSpotifyPlaylistDetail(spl);
-        renderAll();
-      });
-      spRow.appendChild(spBtn);
-      els.sidebarPlaylists.appendChild(spRow);
-    }
+  if (isSpotifyMode) {
+    renderSpotifySidebarItems();
+  } else {
+    renderLocalSidebarItems();
   }
+}
 
-  if (state.playlists.length === 0 && !state.spotifyAuth?.connected) {
+function renderSpotifySidebarItems() {
+  if (!state.spotifyAuth?.connected) {
     const empty = document.createElement('div');
     empty.className = 'playlist-empty-note';
-    empty.textContent = 'Henüz playlist oluşturulmadı.';
+    empty.textContent = 'Spotify hesabını bağlayınca beğendiklerin ve listelerin burada listelenir.';
+    els.sidebarPlaylists.appendChild(empty);
+
+    const quickRow = document.createElement('div');
+    quickRow.className = 'playlist-row';
+    if (state.spotifySubTab === 'public') quickRow.classList.add('is-active');
+    const quickBtn = document.createElement('button');
+    quickBtn.type = 'button';
+    quickBtn.className = 'playlist-select-btn';
+    quickBtn.innerHTML = `
+      <span class="pl-mini-cover">🔗</span>
+      <span class="pl-mini-text">
+        <span class="playlist-name">Linkten Dinle</span>
+        <span class="playlist-sub">Giriş yapmadan akış aç</span>
+      </span>`;
+    quickBtn.addEventListener('click', () => {
+      state.spotifySubTab = 'public';
+      renderAll();
+      els.spPublicUrl.focus();
+    });
+    quickRow.appendChild(quickBtn);
+    els.sidebarPlaylists.appendChild(quickRow);
+    return;
+  }
+
+  const likedRow = document.createElement('div');
+  likedRow.className = 'playlist-row';
+  if (state.spotifySubTab === 'liked') likedRow.classList.add('is-active');
+  const likedBtn = document.createElement('button');
+  likedBtn.type = 'button';
+  likedBtn.className = 'playlist-select-btn';
+  likedBtn.innerHTML = `
+    <span class="pl-mini-cover pl-mini-cover--liked">♥</span>
+    <span class="pl-mini-text">
+      <span class="playlist-name">Beğenilen Şarkılar</span>
+      <span class="playlist-sub">Spotify • Canlı Akış</span>
+    </span>`;
+  likedBtn.addEventListener('click', () => {
+    state.viewTab = 'spotify';
+    state.spotifySubTab = 'liked';
+    loadSpotifyLiked(true);
+    renderAll();
+  });
+  likedRow.appendChild(likedBtn);
+  els.sidebarPlaylists.appendChild(likedRow);
+
+  if (state.spotifyPlaylists.length === 0) {
+    const note = document.createElement('div');
+    note.className = 'playlist-empty-note';
+    note.textContent = 'Spotify playlisti bulunamadı veya yenileniyor...';
+    els.sidebarPlaylists.appendChild(note);
+    return;
+  }
+
+  for (const spl of state.spotifyPlaylists) {
+    const spRow = document.createElement('div');
+    spRow.className = 'playlist-row';
+    if (state.spotifySubTab === 'playlist-detail' && state.spotifyCollection.id === spl.id) {
+      spRow.classList.add('is-active');
+    }
+
+    const spBtn = document.createElement('button');
+    spBtn.type = 'button';
+    spBtn.className = 'playlist-select-btn';
+
+    const thumb = document.createElement('span');
+    thumb.className = 'pl-mini-cover';
+    const extPref = state.externalListPrefs[spl.id];
+    const coverSrc = extPref?.coverFile ? coverFileUrl(extPref.coverFile) : spl.coverUrl;
+    if (coverSrc) {
+      const img = document.createElement('img');
+      img.src = coverSrc;
+      img.alt = '';
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = '♪';
+    }
+
+    const txt = document.createElement('span');
+    txt.className = 'pl-mini-text';
+    const nm = document.createElement('span');
+    nm.className = 'playlist-name';
+    nm.textContent = spl.name;
+    const sub = document.createElement('span');
+    sub.className = 'playlist-sub';
+    sub.textContent = `${spl.trackCount} şarkı${spl.ownerName ? ` • ${spl.ownerName}` : ''}`;
+    txt.append(nm, sub);
+    spBtn.append(thumb, txt);
+    spBtn.addEventListener('click', () => {
+      state.viewTab = 'spotify';
+      openSpotifyPlaylistDetail(spl, true);
+      renderAll();
+    });
+
+    spRow.appendChild(spBtn);
+    els.sidebarPlaylists.appendChild(spRow);
+  }
+}
+
+function renderLocalSidebarItems() {
+  const allRow = document.createElement('div');
+  allRow.className = 'playlist-row';
+  if (state.viewTab === 'library' && !state.activePlaylistId) {
+    allRow.classList.add('is-active');
+  }
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'playlist-select-btn';
+  allBtn.innerHTML = `
+    <span class="pl-mini-cover">♪</span>
+    <span class="pl-mini-text">
+      <span class="playlist-name">Tüm Yerel Müzikler</span>
+      <span class="playlist-sub">${state.tracks.length} şarkı</span>
+    </span>`;
+  allBtn.addEventListener('click', () => {
+    state.viewTab = 'library';
+    state.activePlaylistId = null;
+    renderAll();
+  });
+  allRow.appendChild(allBtn);
+  els.sidebarPlaylists.appendChild(allRow);
+
+  if (state.playlists.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'playlist-empty-note';
+    empty.textContent = 'Henüz yerel playlist oluşturulmadı. "+" ile oluşturabilirsin.';
     els.sidebarPlaylists.appendChild(empty);
     return;
   }
@@ -1673,16 +2128,12 @@ function renderSidebar() {
   }
 }
 
-function syncViewModeButtons(buttons, activeMode) {
-  for (const btn of buttons) {
-    btn.classList.toggle('is-active', btn.dataset.mode === activeMode);
-  }
-}
-
+/* ---------------- Main Views Routing ---------------- */
 function renderMainView() {
   els.viewLibrary.hidden = state.viewTab !== 'library';
   els.viewSpotify.hidden = state.viewTab !== 'spotify';
   els.viewDownloader.hidden = state.viewTab !== 'downloader';
+  els.viewSettings.hidden = state.viewTab !== 'settings';
 
   if (state.viewTab === 'downloader') {
     renderDownloaderJobs();
@@ -1691,6 +2142,11 @@ function renderMainView() {
 
   if (state.viewTab === 'spotify') {
     renderSpotifyView();
+    return;
+  }
+
+  if (state.viewTab === 'settings') {
+    renderSettingsView();
     return;
   }
 
@@ -1704,8 +2160,8 @@ function renderMainView() {
   const viewMode = activePl ? activePl.viewMode || 'list' : state.settings.libraryViewMode || 'list';
 
   els.libHero.classList.toggle('is-playlist-hero', Boolean(activePl));
-  els.viewEyebrow.textContent = activePl ? 'PLAYLİST' : 'KÜTÜPHANE';
-  els.viewTitle.textContent = activePl ? activePl.name : 'Tüm Müzikler';
+  els.viewEyebrow.textContent = activePl ? 'YEREL PLAYLİST' : 'YEREL KÜTÜPHANE';
+  els.viewTitle.textContent = activePl ? activePl.name : 'Tüm Yerel Müzikler';
 
   if (activePl && activePl.description) {
     els.viewDesc.hidden = false;
@@ -1748,12 +2204,12 @@ function renderMainView() {
       els.emptyMuzikPath.hidden = true;
     } else if (activePl) {
       els.emptyTitle.textContent = 'Bu playlist henüz boş';
-      els.emptyDesc.textContent = 'Tüm Müzikler sekmesindeki şarkılarda "+ Liste" düğmesini kullanarak bu playliste şarkı ekleyebilirsin.';
+      els.emptyDesc.textContent = 'Tüm Yerel Müzikler görünümünden "+ Liste" düğmesiyle şarkı ekleyebilirsin.';
       els.emptyMuzikPath.hidden = true;
     } else {
       els.emptyTitle.textContent = 'Müzik klasörün henüz boş';
       els.emptyDesc.textContent =
-        "Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify/YouTube'dan dinleyip indirebilirsin.";
+        "Ses dosyalarını (.mp3, .wav, .flac, .ogg, .m4a, .aac, .opus) doğrudan aşağıdaki klasöre atabilir, pencereye sürükleyip bırakabilir ya da Spotify sekmesinden indirmeden dinleyebilirsin.";
       els.emptyMuzikPath.hidden = false;
       els.emptyMuzikPath.textContent = state.muzikDir;
     }
@@ -1771,6 +2227,35 @@ function renderMainView() {
     allowReorder: canReorder,
     isExternal: false
   });
+}
+
+/* ---------------- Settings View Rendering ---------------- */
+function renderSettingsView() {
+  syncSettingsTabs();
+
+  const scale = clampScale(state.settings.uiScale);
+  const pct = `%${Math.round(scale * 100)}`;
+  els.uiScaleSlider.value = String(scale);
+  els.uiScaleLabel.textContent = pct;
+  syncSliderVisual(els.uiScaleSlider, pct);
+  for (const chip of els.uiScalePresets.querySelectorAll('.preset-chip')) {
+    chip.classList.toggle('is-selected', Math.abs(Number(chip.dataset.scale) - scale) < 0.015);
+  }
+
+  applyLayout(state.settings.layout);
+  renderEqUI();
+
+  const auth = state.spotifyAuth || {};
+  const connected = Boolean(auth.connected);
+  els.settingsSpStatus.textContent = connected
+    ? `Bağlı: ${auth.user?.displayName || 'Spotify'}`
+    : 'Hazır (Giriş Bekleniyor)';
+  els.settingsSpStatus.className = connected ? 'status-badge is-completed' : 'status-badge';
+  els.settingsSpRedirect.textContent = auth.redirectUri || 'http://127.0.0.1:43821/callback';
+  if (document.activeElement !== els.settingsSpClientId) {
+    els.settingsSpClientId.value = auth.clientId || '';
+  }
+  els.settingsMuzikPath.textContent = state.muzikDir || '';
 }
 
 /* ---------------- Spotify Live View & Actions ---------------- */
@@ -1923,15 +2408,7 @@ function renderSpotifyView() {
   const auth = state.spotifyAuth || {};
   const connected = Boolean(auth.connected);
 
-  els.spRedirectUriCode.textContent = auth.redirectUri || 'http://127.0.0.1:43821/callback';
-  if (auth.clientId && !els.spClientIdInput.value) {
-    els.spClientIdInput.value = auth.clientId;
-  }
-
   els.spUserBar.hidden = !connected;
-  els.spConnectCard.hidden = connected;
-  els.spSubnav.hidden = !connected;
-
   if (connected && auth.user) {
     els.spUserName.textContent = auth.user.displayName;
     if (auth.user.imageUrl) {
@@ -1942,14 +2419,19 @@ function renderSpotifyView() {
     }
   }
 
-  for (const tabBtn of els.spSubnav.querySelectorAll('.sp-tab')) {
-    const isThis = tabBtn.dataset.sptab === state.spotifySubTab ||
+  for (const tabBtn of els.spTablist.querySelectorAll('[role="tab"]')) {
+    const isThis =
+      tabBtn.dataset.sptab === state.spotifySubTab ||
       (tabBtn.dataset.sptab === 'playlists' && state.spotifySubTab === 'playlist-detail');
-    tabBtn.classList.toggle('is-active', isThis);
+    tabBtn.setAttribute('aria-selected', String(isThis));
+    tabBtn.setAttribute('tabindex', isThis ? '0' : '-1');
   }
-  els.spSearchForm.hidden = state.spotifySubTab !== 'search';
 
-  // Playlists grid subtab
+  const isPublicTab = state.spotifySubTab === 'public';
+  els.spConnectCard.hidden = connected || isPublicTab;
+  els.spSearchBar.hidden = !(connected && state.spotifySubTab === 'search');
+  els.spPublicBar.hidden = !isPublicTab;
+
   if (connected && state.spotifySubTab === 'playlists') {
     els.spPlaylistsGrid.hidden = false;
     els.spCollectionArea.hidden = true;
@@ -1992,9 +2474,9 @@ function renderSpotifyView() {
 
   els.spPlaylistsGrid.hidden = true;
 
-  // Show collection area if connected OR viewing a pasted public Spotify link!
-  const hasPublicCollection = state.spotifySubTab === 'public' && state.spotifyCollection.tracks.length > 0;
-  if (!connected && !hasPublicCollection) {
+  const showPublicCollection = isPublicTab && (state.spotifyCollection.tracks.length > 0 || state.spotifyCollection.loading);
+  const showAccountCollection = connected && !isPublicTab && state.spotifySubTab !== 'playlists';
+  if (!showAccountCollection && !showPublicCollection) {
     els.spCollectionArea.hidden = true;
     return;
   }
@@ -2054,49 +2536,39 @@ function renderSpotifyView() {
     isExternal: true
   });
 
-  els.spLoadMoreWrap.hidden = !col.hasMore || col.loading;
+  els.spLoadMoreWrap.hidden = !col.hasMore;
+  els.btnSpLoadMore.disabled = col.loading;
 }
 
-/* ---------------- Downloader Rendering ---------------- */
+/* ---------------- Downloader View ---------------- */
 async function updateUrlDetectionBanner() {
-  const raw = els.dlUrlInput.value.trim();
+  const url = els.dlUrlInput.value.trim();
   const pill = els.dlDetectPill;
-  pill.className = 'detect-pill';
+  pill.classList.remove('is-spotify', 'is-youtube', 'is-invalid');
 
-  if (!raw) {
+  if (!url) {
     pill.textContent = 'Link yapıştırıldığında platform otomatik algılanır';
-    return;
+    return null;
   }
 
-  const detected = await window.yusic.detectUrl(raw);
-  if (!detected) {
-    pill.classList.add('is-invalid');
-    pill.textContent = 'Geçerli bir Spotify veya YouTube linki girin';
-    return;
-  }
-
-  if (detected.provider === 'spotify') {
+  const info = await window.yusic.detectUrl(url);
+  if (info.provider === 'spotify') {
     pill.classList.add('is-spotify');
-    const labels = {
-      track: 'Spotify Tek Şarkı (MP3 olarak indirilir)',
-      playlist: 'Spotify Playlist (Tüm liste MP3 olarak indirilir)',
-      album: 'Spotify Albüm (Tüm albüm MP3 olarak indirilir)',
-      short: 'Spotify Kısa Link (Açılıp MP3 olarak indirilir)'
-    };
-    pill.textContent = labels[detected.kind] || 'Spotify';
-    return;
-  }
-
-  pill.classList.add('is-youtube');
-  if (detected.kind === 'playlist') {
-    pill.textContent = 'YouTube Playlist (Tüm video sesleri MP3 olarak indirilir)';
-  } else if (detected.hasListParam) {
-    pill.textContent = els.chkYtList.checked
-      ? 'YouTube Video + Liste (&list= algılandı — tüm playlist MP3 indirilecek)'
-      : 'YouTube Tek Video (MP3 olarak indirilir)';
+    const kindLabels = { track: 'Tek Şarkı', playlist: 'Playlist (Tüm Şarkılar)', album: 'Albüm', artist: 'Sanatçı' };
+    pill.textContent = `Spotify • ${kindLabels[info.kind] || 'İçerik'} -> MP3 olarak indirilecek`;
+  } else if (info.provider === 'youtube') {
+    pill.classList.add('is-youtube');
+    const isPlaylist =
+      info.kind === 'playlist' ||
+      (info.kind === 'watch_with_playlist' && els.chkYtList.checked);
+    pill.textContent = isPlaylist
+      ? 'YouTube • Tüm Playlist -> MP3 olarak indirilecek'
+      : 'YouTube • Tek Video -> MP3 olarak indirilecek';
   } else {
-    pill.textContent = 'YouTube Tek Video (MP3 olarak indirilir)';
+    pill.classList.add('is-invalid');
+    pill.textContent = 'Geçersiz link. open.spotify.com, youtube.com veya youtu.be bağlantısı girin.';
   }
+  return info;
 }
 
 function renderDownloaderJobs() {
@@ -2146,9 +2618,7 @@ function renderDownloaderJobs() {
       cancelBtn.type = 'button';
       cancelBtn.className = 'btn btn-ghost btn-xs';
       cancelBtn.textContent = 'İptal Et';
-      cancelBtn.addEventListener('click', () => {
-        window.yusic.cancelDownload(job.id);
-      });
+      cancelBtn.addEventListener('click', () => window.yusic.cancelDownload(job.id));
       badges.appendChild(cancelBtn);
     }
 
@@ -2220,16 +2690,17 @@ function renderDownloaderJobs() {
   }
 }
 
-/* ---------------- Auto-Updater UI (Strict Same-Version Guard) ---------------- */
+/* ---------------- Auto-Updater Banner & Modal ---------------- */
 function renderUpdateState() {
   const u = state.updateState;
-  const curVer = u?.currentVersion || state.appVersion || '1.0.1';
-  els.appVersionLabel.textContent = `Yusic v${curVer}`;
-  els.updateCurVer.textContent = `v${curVer}`;
+  const verStr = u?.currentVersion || state.appVersion || '1.0.2';
+  els.appVersionLabel.textContent = `Yusic v${verStr}`;
+  els.updateCurVer.textContent = `v${verStr}`;
+  els.settingsCurVer.textContent = `v${verStr}`;
 
   if (!u) return;
 
-  const isReallyNewer = Boolean(u.latestVersion && compareSemver(u.latestVersion, curVer) > 0);
+  const isReallyNewer = Boolean(u.latestVersion && compareSemver(u.latestVersion, verStr) > 0);
   const effectiveStatus =
     (u.status === 'available' || u.status === 'downloaded' || u.status === 'downloading') && !isReallyNewer
       ? 'not-available'
@@ -2281,7 +2752,9 @@ function renderUpdateState() {
     downloaded: `v${u.latestVersion || ''} indirildi! Kurulumu tamamlamak için uygulamayı yeniden başlatın.`,
     error: `Güncelleme hatası: ${u.error || 'Bağlantı sağlanamadı.'}`
   };
-  els.updateStatusMsg.textContent = statusMessages[effectiveStatus] || statusMessages.idle;
+  const msg = statusMessages[effectiveStatus] || statusMessages.idle;
+  els.updateStatusMsg.textContent = msg;
+  els.settingsUpdateDesc.textContent = msg;
 
   if (effectiveStatus === 'checking') {
     els.updateDialogProgressWrap.hidden = false;
@@ -2307,7 +2780,7 @@ function renderUpdateState() {
 
   if (effectiveStatus === 'available' && isReallyNewer) {
     els.btnUpdateAction.hidden = false;
-    els.btnUpdateAction.textContent = u.isPackaged ? 'Güncellemeyi İndir' : 'GitHub\'dan İndir';
+    els.btnUpdateAction.textContent = u.isPackaged ? 'Güncellemeyi İndir' : "GitHub'dan İndir";
   } else if (effectiveStatus === 'downloaded' && isReallyNewer) {
     els.btnUpdateAction.hidden = false;
     els.btnUpdateAction.textContent = 'Şimdi Güncelle ve Yeniden Başlat';
@@ -2318,7 +2791,7 @@ function renderUpdateState() {
 
 async function triggerUpdateAction() {
   const u = state.updateState;
-  const curVer = u?.currentVersion || state.appVersion || '1.0.1';
+  const curVer = u?.currentVersion || state.appVersion || '1.0.2';
   if (!u || !u.latestVersion || compareSemver(u.latestVersion, curVer) <= 0) {
     return;
   }
@@ -2346,11 +2819,36 @@ function rebuildTrackMap(tracks) {
   state.trackMap = new Map(tracks.map((t) => [t.id, t]));
 }
 
+/* ---------------- Tab Activation Helpers ---------------- */
+function activateSpotifyTab(tabEl) {
+  const sub = tabEl?.dataset?.sptab;
+  if (!sub) return;
+  state.spotifySubTab = sub;
+  if (sub === 'liked' && state.spotifyAuth.connected) loadSpotifyLiked(true);
+  else if (sub === 'playlists' && state.spotifyAuth.connected) loadSpotifyPlaylistsList();
+  else if (sub === 'recent' && state.spotifyAuth.connected) loadSpotifyRecent();
+  renderSpotifyView();
+}
+
+function activateSettingsTab(tabEl) {
+  const id = tabEl?.id;
+  const map = {
+    'stab-appearance': 'appearance',
+    'stab-audio': 'audio',
+    'stab-spotify': 'spotify',
+    'stab-updates': 'updates'
+  };
+  if (map[id]) {
+    state.settingsTab = map[id];
+    renderSettingsView();
+  }
+}
+
 /* ---------------- Event Bindings ---------------- */
 function bindEvents() {
-  els.navAllMusic.addEventListener('click', () => {
+  // Navigation
+  els.navLocal.addEventListener('click', () => {
     state.viewTab = 'library';
-    state.activePlaylistId = null;
     renderAll();
   });
 
@@ -2372,6 +2870,12 @@ function bindEvents() {
     renderAll();
   });
 
+  els.navSettings.addEventListener('click', () => {
+    state.viewTab = 'settings';
+    renderAll();
+  });
+
+  // Local Library Controls
   els.btnOpenFolder.addEventListener('click', () => window.yusic.openMusicFolder());
   els.btnEmptyOpenFolder.addEventListener('click', () => window.yusic.openMusicFolder());
   els.btnEmptyGoSpotify.addEventListener('click', () => {
@@ -2485,50 +2989,8 @@ function bindEvents() {
     renderMainView();
   });
 
-  // Spotify View bindings
-  els.btnSpDashboard.addEventListener('click', () => window.yusic.openSpotifyDashboard());
-  els.btnSpCopyRedirect.addEventListener('click', async () => {
-    const uri = els.spRedirectUriCode.textContent;
-    try {
-      await navigator.clipboard.writeText(uri);
-      showToast('Redirect URI panoya kopyalandı.', 'success');
-    } catch {
-      showToast(uri, 'info');
-    }
-  });
-
-  els.spLoginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const clientId = els.spClientIdInput.value.trim();
-    if (!clientId) {
-      showToast('Lütfen önce Spotify Client ID girin.', 'error');
-      return;
-    }
-    els.btnSpLogin.disabled = true;
-    els.btnSpLogin.textContent = 'Tarayıcıda Onay Bekleniyor...';
-    try {
-      const status = await window.yusic.loginSpotify(clientId);
-      state.spotifyAuth = status;
-      showToast('Spotify hesabın başarıyla bağlandı!', 'success');
-      await Promise.all([loadSpotifyLiked(true), loadSpotifyPlaylistsList()]);
-    } catch (err) {
-      showToast(err?.message || 'Spotify bağlantısı tamamlanamadı.', 'error');
-    } finally {
-      els.btnSpLogin.disabled = false;
-      els.btnSpLogin.textContent = 'Spotify ile Bağlan';
-      renderAll();
-    }
-  });
-
-  els.btnSpLogout.addEventListener('click', async () => {
-    state.spotifyAuth = await window.yusic.logoutSpotify();
-    state.spotifyPlaylists = [];
-    state.spotifyCollection.tracks = [];
-    showToast('Spotify oturumu kapatıldı.', 'info');
-    renderAll();
-  });
-
-  els.btnSpRefresh.addEventListener('click', async () => {
+  // Spotify View & Sidebar Refresh
+  const refreshSpotifyState = async () => {
     await loadSpotifyPlaylistsList();
     if (state.spotifySubTab === 'liked') await loadSpotifyLiked(true);
     else if (state.spotifySubTab === 'recent') await loadSpotifyRecent();
@@ -2545,18 +3007,54 @@ function bindEvents() {
       );
     }
     showToast('Spotify kitaplığı yenilendi.', 'success');
+  };
+
+  els.btnSpRefresh.addEventListener('click', refreshSpotifyState);
+  els.btnSpSidebarRefresh.addEventListener('click', refreshSpotifyState);
+
+  els.btnSpLogin.addEventListener('click', async () => {
+    els.btnSpLogin.disabled = true;
+    els.btnSpLogin.textContent = 'Tarayıcıda Onay Bekleniyor...';
+    try {
+      const status = await window.yusic.loginSpotify();
+      state.spotifyAuth = status;
+      showToast('Spotify hesabın başarıyla bağlandı!', 'success');
+      await Promise.all([loadSpotifyLiked(true), loadSpotifyPlaylistsList()]);
+    } catch (err) {
+      showToast(err?.message || 'Spotify bağlantısı tamamlanamadı.', 'error');
+    } finally {
+      els.btnSpLogin.disabled = false;
+      els.btnSpLogin.textContent = 'Spotify ile Bağlan';
+      renderAll();
+    }
   });
 
-  els.spSubnav.addEventListener('click', (e) => {
-    const btn = e.target.closest('.sp-tab');
-    if (!btn) return;
-    const sub = btn.dataset.sptab;
-    state.spotifySubTab = sub;
-    if (sub === 'liked') loadSpotifyLiked(true);
-    else if (sub === 'playlists') loadSpotifyPlaylistsList();
-    else if (sub === 'recent') loadSpotifyRecent();
-    else renderSpotifyView();
+  els.btnSpGoPublic.addEventListener('click', () => {
+    state.spotifySubTab = 'public';
+    renderSpotifyView();
+    els.spPublicUrl.focus();
   });
+
+  els.btnSpOpenSettings.addEventListener('click', () => {
+    state.viewTab = 'settings';
+    state.settingsTab = 'spotify';
+    renderAll();
+  });
+
+  els.btnSpLogout.addEventListener('click', async () => {
+    state.spotifyAuth = await window.yusic.logoutSpotify();
+    state.spotifyPlaylists = [];
+    state.spotifyCollection.tracks = [];
+    showToast('Spotify oturumu kapatıldı.', 'info');
+    renderAll();
+  });
+
+  els.spTablist.addEventListener('click', (e) => {
+    const tab = e.target.closest('[role="tab"]');
+    if (!tab) return;
+    activateSpotifyTab(tab);
+  });
+  bindTablistKeyboard(els.spTablist, activateSpotifyTab);
 
   els.spSearchForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -2666,6 +3164,109 @@ function bindEvents() {
     }
   });
 
+  // Settings View Bindings
+  els.settingsTablist.addEventListener('click', (e) => {
+    const tab = e.target.closest('[role="tab"]');
+    if (!tab) return;
+    activateSettingsTab(tab);
+  });
+  bindTablistKeyboard(els.settingsTablist, activateSettingsTab);
+
+  els.uiScaleSlider.addEventListener('input', () => {
+    applyUiScale(els.uiScaleSlider.value, true, true);
+  });
+
+  els.uiScalePresets.addEventListener('click', (e) => {
+    const chip = e.target.closest('.preset-chip');
+    if (!chip) return;
+    applyUiScale(chip.dataset.scale, true, true);
+  });
+
+  els.btnResetLayout.addEventListener('click', () => {
+    applyLayout({ ...DEFAULT_LAYOUT });
+    saveSettingsPatch({ layout: { ...DEFAULT_LAYOUT } }, true);
+    showToast('Panel boyutları varsayılan ölçülere sıfırlandı.', 'info');
+  });
+
+  // 10-Band EQ Controls
+  buildEqBandsUI();
+
+  els.chkEqEnabled.addEventListener('change', () => {
+    const eq = ensureEqStateShape();
+    eq.enabled = Boolean(els.chkEqEnabled.checked);
+    applyEqToAudioGraph();
+    renderEqUI();
+    saveSettingsPatch({ eq: { ...eq, bands: eq.bands.slice() } }, true);
+  });
+
+  els.btnEqReset.addEventListener('click', () => {
+    const eq = ensureEqStateShape();
+    eq.preset = 'flat';
+    eq.bands = EQ_PRESETS.flat.slice();
+    applyEqToAudioGraph();
+    renderEqUI();
+    saveSettingsPatch({ eq: { ...eq, bands: eq.bands.slice() } }, true);
+  });
+
+  els.eqPresetsRow.addEventListener('click', (e) => {
+    const chip = e.target.closest('.preset-chip');
+    if (!chip) return;
+    const key = chip.dataset.eqPreset;
+    const presetBands = EQ_PRESETS[key];
+    if (!presetBands) return;
+    const eq = ensureEqStateShape();
+    eq.preset = key;
+    eq.bands = presetBands.slice();
+    if (key !== 'flat') eq.enabled = true;
+    applyEqToAudioGraph();
+    renderEqUI();
+    saveSettingsPatch({ eq: { ...eq, bands: eq.bands.slice() } }, true);
+  });
+
+  els.btnEqShortcut.addEventListener('click', () => {
+    state.viewTab = 'settings';
+    state.settingsTab = 'audio';
+    renderAll();
+  });
+
+  // Settings Spotify & Folder & Updates Controls
+  els.btnSettingsSpSave.addEventListener('click', async () => {
+    const id = els.settingsSpClientId.value.trim();
+    if (!id) {
+      showToast('Client ID boş olamaz.', 'error');
+      return;
+    }
+    state.spotifyAuth = await window.yusic.saveSpotifyClientId(id);
+    showToast('Spotify Client ID kaydedildi.', 'success');
+    renderSettingsView();
+  });
+
+  els.btnSettingsSpReset.addEventListener('click', async () => {
+    state.spotifyAuth = await window.yusic.resetSpotifyClientId();
+    els.settingsSpClientId.value = state.spotifyAuth.clientId || '';
+    showToast('Dahili varsayılan Spotify Client ID geri yüklendi.', 'info');
+    renderSettingsView();
+  });
+
+  els.btnSettingsSpCopy.addEventListener('click', async () => {
+    const uri = els.settingsSpRedirect.textContent;
+    try {
+      await navigator.clipboard.writeText(uri);
+      showToast('Redirect URI panoya kopyalandı.', 'success');
+    } catch {
+      showToast(uri, 'info');
+    }
+  });
+
+  els.btnSettingsSpDashboard.addEventListener('click', () => window.yusic.openSpotifyDashboard());
+  els.btnSettingsOpenFolder.addEventListener('click', () => window.yusic.openMusicFolder());
+  els.btnSettingsCheckUpdate.addEventListener('click', async () => {
+    renderUpdateState();
+    els.updateDialog.showModal();
+    await window.yusic.checkForUpdates();
+  });
+  els.btnSettingsOpenGithub.addEventListener('click', () => window.yusic.openReleasePage());
+
   // Transport controls
   els.btnPlayPause.addEventListener('click', togglePlayPause);
   els.btnPrev.addEventListener('click', handlePrev);
@@ -2688,7 +3289,7 @@ function bindEvents() {
     state.isSeeking = false;
   });
 
-  // Speed & Pitch Popover (respects active override scope or global)
+  // Speed & Pitch Popover
   const persistCurrentSpeedChange = async (speed, preservePitch, immediate) => {
     const eff = getActiveEffectiveSpeed();
     if (eff.source === 'track' && state.currentTrackId) {
@@ -2803,7 +3404,6 @@ function bindEvents() {
     renderAll();
   });
 
-  // Speed override modal live slider/presets
   els.spdOvSlider.addEventListener('input', () => {
     syncSpeedOverrideDialogUI(els.spdOvSlider.value, els.ovPitchPreserve.checked);
   });
@@ -2868,7 +3468,8 @@ function bindEvents() {
   });
 
   audio.addEventListener('error', () => {
-    if (!state.currentTrackId) return;
+    if (!state.currentTrackId || !audio.getAttribute('src')) return;
+    if (audio.error && audio.error.code === MediaError.MEDIA_ERR_ABORTED) return;
     showToast('Ses kaynağı yüklenemedi, sonraki parçaya geçiliyor.', 'error');
     if (state.queueIds.length > 1) {
       handleNext(false);
@@ -2889,7 +3490,7 @@ function bindEvents() {
         }
       });
     } catch {
-      // Ignore unsupported media session actions
+      // Ignore
     }
   }
 
@@ -2909,14 +3510,14 @@ function bindEvents() {
     if (!url) return;
     try {
       const job = await window.yusic.startDownload(url, {
-        autoCreatePlaylist: els.chkAutoPlaylist.checked,
-        downloadYoutubePlaylist: els.chkYtList.checked
+        createPlaylist: els.chkAutoPlaylist.checked,
+        includeYoutubePlaylistOnWatch: els.chkYtList.checked
       });
+      if (!state.downloads.some((j) => j.id === job.id)) {
+        state.downloads.unshift(job);
+      }
       els.dlUrlInput.value = '';
       updateUrlDetectionBanner();
-      const idx = state.downloads.findIndex((j) => j.id === job.id);
-      if (idx === -1) state.downloads.unshift(job);
-      else state.downloads[idx] = job;
       renderSidebar();
       renderDownloaderJobs();
       showToast('İndirme kuyruğa eklendi.', 'success');
@@ -3121,16 +3722,28 @@ function bindEvents() {
 
 async function initApp() {
   setupDialogEnhancements();
+  setupPanelResizers();
   bindEvents();
 
   const initData = await window.yusic.init();
   state.muzikDir = initData.muzikDir;
-  state.appVersion = initData.appVersion || '1.0.1';
+  state.appVersion = initData.appVersion || '1.0.2';
   state.isPackaged = Boolean(initData.isPackaged);
   state.serverUrl = initData.serverUrl;
   state.serverToken = initData.serverToken;
   state.playlists = initData.playlists || [];
-  state.settings = { ...state.settings, ...(initData.settings || {}) };
+  state.settings = {
+    ...state.settings,
+    ...(initData.settings || {}),
+    eq: {
+      enabled: Boolean(initData.settings?.eq?.enabled),
+      preset: String(initData.settings?.eq?.preset || 'flat'),
+      bands: Array.isArray(initData.settings?.eq?.bands)
+        ? initData.settings.eq.bands.slice(0, 10)
+        : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    layout: sanitizeLayoutValues(initData.settings?.layout)
+  };
   state.trackSpeedOverrides = initData.trackSpeedOverrides || {};
   state.externalListPrefs = initData.externalListPrefs || {};
   state.spotifyAuth = initData.spotifyAuth || { connected: false, clientId: '', user: null };
@@ -3139,6 +3752,10 @@ async function initApp() {
   state.updateState = initData.updateState || null;
 
   rebuildTrackMap(initData.tracks || []);
+
+  applyUiScale(state.settings.uiScale, false);
+  applyLayout(state.settings.layout);
+  renderEqUI();
 
   els.chkAutoPlaylist.checked = state.settings.autoCreatePlaylistOnDownload !== false;
   els.chkYtList.checked = state.settings.downloadYoutubePlaylistOnWatch !== false;

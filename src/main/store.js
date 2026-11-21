@@ -3,7 +3,22 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { clampSpeed } from './playbackLogic.js';
 
+export const DEFAULT_SPOTIFY_CLIENT_ID = 'f7dab3d9716247db8368240742febbf5';
+export const DEFAULT_EQ_FREQUENCIES = Object.freeze([32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]);
+
 const VIEW_MODES = new Set(['list', 'compact', 'grid']);
+
+const DEFAULT_EQ = Object.freeze({
+  enabled: false,
+  preset: 'flat',
+  bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+});
+
+const DEFAULT_LAYOUT = Object.freeze({
+  sidebarWidth: 288,
+  sidebarNavHeight: 204,
+  playerBarHeight: 90
+});
 
 const DEFAULT_SETTINGS = Object.freeze({
   volume: 0.85,
@@ -14,11 +29,14 @@ const DEFAULT_SETTINGS = Object.freeze({
   repeatMode: 'off',
   autoCreatePlaylistOnDownload: true,
   downloadYoutubePlaylistOnWatch: true,
-  libraryViewMode: 'list'
+  libraryViewMode: 'list',
+  uiScale: 1.0,
+  eq: DEFAULT_EQ,
+  layout: DEFAULT_LAYOUT
 });
 
 const DEFAULT_SPOTIFY_AUTH = Object.freeze({
-  clientId: '',
+  clientId: DEFAULT_SPOTIFY_CLIENT_ID,
   accessToken: '',
   refreshToken: '',
   expiresAt: 0,
@@ -39,11 +57,52 @@ function sanitizeViewMode(mode, fallback = 'list') {
   return VIEW_MODES.has(mode) ? mode : fallback;
 }
 
+function sanitizeUiScale(val) {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return DEFAULT_SETTINGS.uiScale;
+  const clamped = Math.min(1.5, Math.max(0.75, num));
+  return Math.round(clamped * 100) / 100;
+}
+
+function sanitizeEq(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const rawBands = Array.isArray(r.bands) ? r.bands : DEFAULT_EQ.bands;
+  const bands = DEFAULT_EQ_FREQUENCIES.map((_, idx) => {
+    const val = Number(rawBands[idx]);
+    if (!Number.isFinite(val)) return 0;
+    return Math.round(Math.min(12, Math.max(-12, val)) * 10) / 10;
+  });
+  return {
+    enabled: Boolean(r.enabled),
+    preset: String(r.preset || 'flat'),
+    bands
+  };
+}
+
+function clampInt(val, min, max, fallback) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.round(Math.min(max, Math.max(min, n)));
+}
+
+function sanitizeLayout(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  return {
+    sidebarWidth: clampInt(r.sidebarWidth, 220, 520, DEFAULT_LAYOUT.sidebarWidth),
+    sidebarNavHeight: clampInt(r.sidebarNavHeight, 145, 360, DEFAULT_LAYOUT.sidebarNavHeight),
+    playerBarHeight: clampInt(r.playerBarHeight, 76, 140, DEFAULT_LAYOUT.playerBarHeight)
+  };
+}
+
 function createEmptyDb() {
   return {
     version: 1,
     playlists: [],
-    settings: { ...DEFAULT_SETTINGS },
+    settings: {
+      ...DEFAULT_SETTINGS,
+      eq: { ...DEFAULT_EQ, bands: [...DEFAULT_EQ.bands] },
+      layout: { ...DEFAULT_LAYOUT }
+    },
     trackSpeedOverrides: {},
     externalListPrefs: {},
     spotifyAuth: { ...DEFAULT_SPOTIFY_AUTH },
@@ -92,6 +151,7 @@ export class YusicStore {
       }
 
       const rawAuth = parsed?.spotifyAuth && typeof parsed.spotifyAuth === 'object' ? parsed.spotifyAuth : {};
+      const clientId = String(rawAuth.clientId || '').trim() || DEFAULT_SPOTIFY_CLIENT_ID;
 
       this.data = {
         version: 1,
@@ -111,7 +171,7 @@ export class YusicStore {
         trackSpeedOverrides,
         externalListPrefs,
         spotifyAuth: {
-          clientId: String(rawAuth.clientId || ''),
+          clientId,
           accessToken: String(rawAuth.accessToken || ''),
           refreshToken: String(rawAuth.refreshToken || ''),
           expiresAt: Number(rawAuth.expiresAt) || 0,
@@ -157,7 +217,10 @@ export class YusicStore {
         next.downloadYoutubePlaylistOnWatch !== undefined
           ? Boolean(next.downloadYoutubePlaylistOnWatch)
           : true,
-      libraryViewMode: sanitizeViewMode(next.libraryViewMode, 'list')
+      libraryViewMode: sanitizeViewMode(next.libraryViewMode, 'list'),
+      uiScale: sanitizeUiScale(next.uiScale),
+      eq: sanitizeEq(next.eq),
+      layout: sanitizeLayout(next.layout)
     };
   }
 
@@ -358,14 +421,19 @@ export class YusicStore {
   getSpotifyAuth() {
     return {
       ...this.data.spotifyAuth,
+      clientId: this.data.spotifyAuth.clientId || DEFAULT_SPOTIFY_CLIENT_ID,
       user: this.data.spotifyAuth.user ? { ...this.data.spotifyAuth.user } : null
     };
   }
 
   setSpotifyAuth(patch = {}) {
     const prev = this.data.spotifyAuth;
+    const nextClientId =
+      patch.clientId !== undefined
+        ? String(patch.clientId).trim() || DEFAULT_SPOTIFY_CLIENT_ID
+        : prev.clientId || DEFAULT_SPOTIFY_CLIENT_ID;
     this.data.spotifyAuth = {
-      clientId: patch.clientId !== undefined ? String(patch.clientId).trim() : prev.clientId,
+      clientId: nextClientId,
       accessToken: patch.accessToken !== undefined ? String(patch.accessToken) : prev.accessToken,
       refreshToken: patch.refreshToken !== undefined ? String(patch.refreshToken) : prev.refreshToken,
       expiresAt: patch.expiresAt !== undefined ? Number(patch.expiresAt) || 0 : prev.expiresAt,
@@ -377,7 +445,7 @@ export class YusicStore {
 
   clearSpotifyTokens() {
     this.data.spotifyAuth = {
-      clientId: this.data.spotifyAuth.clientId || '',
+      clientId: this.data.spotifyAuth.clientId || DEFAULT_SPOTIFY_CLIENT_ID,
       accessToken: '',
       refreshToken: '',
       expiresAt: 0,
@@ -388,14 +456,34 @@ export class YusicStore {
   }
 
   getSettings() {
-    return { ...this.data.settings };
+    return {
+      ...this.data.settings,
+      eq: {
+        ...this.data.settings.eq,
+        bands: [...this.data.settings.eq.bands]
+      },
+      layout: { ...this.data.settings.layout }
+    };
   }
 
-  updateSettings(patch) {
-    this.data.settings = this._sanitizeSettings({
+  updateSettings(patch = {}) {
+    const merged = {
       ...this.data.settings,
-      ...(patch || {})
-    });
+      ...patch
+    };
+    if (patch.eq && typeof patch.eq === 'object') {
+      merged.eq = {
+        ...this.data.settings.eq,
+        ...patch.eq
+      };
+    }
+    if (patch.layout && typeof patch.layout === 'object') {
+      merged.layout = {
+        ...this.data.settings.layout,
+        ...patch.layout
+      };
+    }
+    this.data.settings = this._sanitizeSettings(merged);
     this.save();
     return this.getSettings();
   }
