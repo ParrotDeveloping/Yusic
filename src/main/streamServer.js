@@ -24,22 +24,40 @@ const COVER_MIME_TYPES = {
   '.webp': 'image/webp'
 };
 
-const STREAM_CACHE_TTL_MS = 25 * 60 * 1000;
+const STREAM_CACHE_TTL_MS = 45 * 60 * 1000;
+const MAX_CACHED_BUFFERS = 14;
+const MAX_CACHE_BYTES = 120 * 1024 * 1024;
 
-function mimeForExt(ext = '') {
-  const lower = String(ext).toLowerCase().replace(/^\./, '');
-  if (lower === 'm4a' || lower === 'mp4') return 'audio/mp4';
-  if (lower === 'webm' || lower === 'opus') return 'audio/webm';
-  if (lower === 'mp3') return 'audio/mpeg';
-  if (lower === 'ogg') return 'audio/ogg';
+export function detectAudioMime(buf) {
+  if (!buf || buf.length < 12) return 'audio/mp4';
+  if (buf.subarray(4, 8).toString('ascii') === 'ftyp') return 'audio/mp4';
+  if (buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) return 'audio/webm';
+  if (buf.subarray(0, 4).toString('ascii') === 'OggS') return 'audio/ogg';
+  if (buf.subarray(0, 4).toString('ascii') === 'fLaC') return 'audio/flac';
+  if (buf.subarray(0, 4).toString('ascii') === 'RIFF') return 'audio/wav';
+  if (
+    buf.subarray(0, 3).toString('ascii') === 'ID3' ||
+    (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)
+  ) {
+    return 'audio/mpeg';
+  }
   return 'audio/mp4';
 }
 
 export class StreamServer {
-  constructor({ library, coversDir, ffmpegPath, ytDlpPath = null, nodePath = null, fetchImpl = fetch }) {
+  constructor({
+    library,
+    coversDir,
+    ffmpegPath,
+    ffmpegDir = null,
+    ytDlpPath = null,
+    nodePath = null,
+    fetchImpl = fetch
+  }) {
     this.library = library;
     this.coversDir = coversDir;
     this.ffmpegPath = ffmpegPath;
+    this.ffmpegDir = ffmpegDir;
     this.ytDlpPath = ytDlpPath;
     this.nodePath = nodePath;
     this.fetchImpl = fetchImpl;
@@ -48,6 +66,8 @@ export class StreamServer {
     this.port = 0;
 
     this.streamCache = new Map();
+    this.bufferCache = new Map();
+    this.cacheTotalBytes = 0;
     this.inFlightResolves = new Map();
   }
 
@@ -78,6 +98,42 @@ export class StreamServer {
       'Access-Control-Allow-Origin': '*'
     });
     res.end(message);
+  }
+
+  _getCachedBuffer(key) {
+    const entry = this.bufferCache.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt <= Date.now()) {
+      this.bufferCache.delete(key);
+      this.cacheTotalBytes = Math.max(0, this.cacheTotalBytes - entry.buffer.length);
+      return null;
+    }
+    // Refresh LRU order
+    this.bufferCache.delete(key);
+    this.bufferCache.set(key, entry);
+    return entry;
+  }
+
+  _setCachedBuffer(key, entry) {
+    const prev = this.bufferCache.get(key);
+    if (prev) {
+      this.bufferCache.delete(key);
+      this.cacheTotalBytes = Math.max(0, this.cacheTotalBytes - prev.buffer.length);
+    }
+    this.bufferCache.set(key, entry);
+    this.cacheTotalBytes += entry.buffer.length;
+
+    while (
+      this.bufferCache.size > MAX_CACHED_BUFFERS ||
+      (this.cacheTotalBytes > MAX_CACHE_BYTES && this.bufferCache.size > 1)
+    ) {
+      const oldestKey = this.bufferCache.keys().next().value;
+      const oldest = this.bufferCache.get(oldestKey);
+      this.bufferCache.delete(oldestKey);
+      if (oldest) {
+        this.cacheTotalBytes = Math.max(0, this.cacheTotalBytes - oldest.buffer.length);
+      }
+    }
   }
 
   _handleRequest(req, res) {
@@ -161,6 +217,76 @@ export class StreamServer {
     fs.createReadStream(filePath).pipe(res);
   }
 
+  _parseRange(rangeHeader, totalSize) {
+    if (!rangeHeader) return null;
+    const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+    if (!match) return { invalid: true };
+
+    let start = match[1] ? Number.parseInt(match[1], 10) : 0;
+    let end = match[2] ? Number.parseInt(match[2], 10) : totalSize - 1;
+
+    if (!match[1] && match[2]) {
+      const suffixLen = Number.parseInt(match[2], 10);
+      start = Math.max(0, totalSize - suffixLen);
+      end = totalSize - 1;
+    }
+
+    if (
+      start >= totalSize ||
+      end >= totalSize ||
+      start > end ||
+      Number.isNaN(start) ||
+      Number.isNaN(end)
+    ) {
+      return { invalid: true };
+    }
+    return { start, end, invalid: false };
+  }
+
+  _serveBufferRange(req, res, buffer, contentType) {
+    const totalSize = buffer.length;
+    const parsed = this._parseRange(req.headers.range, totalSize);
+
+    if (parsed?.invalid) {
+      res.writeHead(416, {
+        'Content-Range': `bytes */${totalSize}`,
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end();
+      return;
+    }
+
+    if (parsed) {
+      const { start, end } = parsed;
+      const chunk = buffer.subarray(start, end + 1);
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunk.length,
+        'Content-Type': contentType,
+        'Access-Control-Allow-Origin': '*'
+      });
+      if (req.method === 'HEAD') {
+        res.end();
+        return;
+      }
+      res.end(chunk);
+      return;
+    }
+
+    res.writeHead(200, {
+      'Accept-Ranges': 'bytes',
+      'Content-Length': totalSize,
+      'Content-Type': contentType,
+      'Access-Control-Allow-Origin': '*'
+    });
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+    res.end(buffer);
+  }
+
   _serveAudio(req, res, trackId) {
     const track = this.library?.getTrackById(trackId);
     if (!track || !fs.existsSync(track.fullPath)) {
@@ -183,42 +309,23 @@ export class StreamServer {
 
     const totalSize = stat.size;
     const contentType = AUDIO_MIME_TYPES[track.ext] || 'application/octet-stream';
-    const rangeHeader = req.headers.range;
+    const parsed = this._parseRange(req.headers.range, totalSize);
 
-    if (rangeHeader) {
-      const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
-      if (!match) {
-        res.writeHead(416, {
-          'Content-Range': `bytes */${totalSize}`,
-          'Access-Control-Allow-Origin': '*'
-        });
-        res.end();
-        return;
-      }
+    if (parsed?.invalid) {
+      res.writeHead(416, {
+        'Content-Range': `bytes */${totalSize}`,
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end();
+      return;
+    }
 
-      let start = match[1] ? Number.parseInt(match[1], 10) : 0;
-      let end = match[2] ? Number.parseInt(match[2], 10) : totalSize - 1;
-
-      if (!match[1] && match[2]) {
-        const suffixLen = Number.parseInt(match[2], 10);
-        start = Math.max(0, totalSize - suffixLen);
-        end = totalSize - 1;
-      }
-
-      if (start >= totalSize || end >= totalSize || start > end || Number.isNaN(start) || Number.isNaN(end)) {
-        res.writeHead(416, {
-          'Content-Range': `bytes */${totalSize}`,
-          'Access-Control-Allow-Origin': '*'
-        });
-        res.end();
-        return;
-      }
-
-      const chunkSize = end - start + 1;
+    if (parsed) {
+      const { start, end } = parsed;
       res.writeHead(206, {
         'Content-Range': `bytes ${start}-${end}/${totalSize}`,
         'Accept-Ranges': 'bytes',
-        'Content-Length': chunkSize,
+        'Content-Length': end - start + 1,
         'Content-Type': contentType,
         'Access-Control-Allow-Origin': '*'
       });
@@ -290,6 +397,9 @@ export class StreamServer {
     } else {
       args.push('--js-runtimes', 'node');
     }
+    if (this.ffmpegDir) {
+      args.push('--ffmpeg-location', this.ffmpegDir);
+    }
     return [...args, ...extraArgs];
   }
 
@@ -312,15 +422,38 @@ export class StreamServer {
     });
   }
 
+  _runYtDlpBuffer(args) {
+    return new Promise((resolve, reject) => {
+      const proc = spawn(this.ytDlpPath, this._ytDlpArgs(args), {
+        windowsHide: true,
+        env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
+      });
+      const chunks = [];
+      let stderr = '';
+      proc.stdout.on('data', (c) => chunks.push(c));
+      proc.stderr.on('data', (d) => {
+        stderr += d.toString('utf8');
+      });
+      proc.on('error', reject);
+      proc.on('close', (code) => resolve({ code, buffer: Buffer.concat(chunks), stderr }));
+    });
+  }
+
   async resolveExternalStream({ key, title, artist, durationMs = 0, previewUrl = '', forceRefresh = false }) {
     const cacheKey = String(key || `${artist}|${title}`);
-    const cached = !forceRefresh ? this.streamCache.get(cacheKey) : null;
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached;
-    }
 
-    if (!forceRefresh && this.inFlightResolves.has(cacheKey)) {
-      return this.inFlightResolves.get(cacheKey);
+    if (!forceRefresh) {
+      const cachedBuf = this._getCachedBuffer(cacheKey);
+      if (cachedBuf) return cachedBuf;
+
+      const cachedUrl = this.streamCache.get(cacheKey);
+      if (cachedUrl && cachedUrl.expiresAt > Date.now()) {
+        return cachedUrl;
+      }
+
+      if (this.inFlightResolves.has(cacheKey)) {
+        return this.inFlightResolves.get(cacheKey);
+      }
     }
 
     const promise = (async () => {
@@ -347,77 +480,44 @@ export class StreamServer {
             }
 
             const best = selectBestYouTubeCandidate(candidates, { title, artist, durationMs });
-            if (best) {
-              const ytUrl =
-                best.webpage_url ||
-                (best.url && best.url.startsWith('http')
-                  ? best.url
-                  : `https://www.youtube.com/watch?v=${best.id}`);
+            const ranked = [
+              best,
+              ...candidates.filter((c) => c && !c.is_live && c !== best)
+            ]
+              .filter(Boolean)
+              .slice(0, 3);
 
-              const infoRes = await this._runYtDlp([
+            for (const cand of ranked) {
+              const ytUrl =
+                cand.webpage_url ||
+                (cand.url && cand.url.startsWith('http')
+                  ? cand.url
+                  : cand.id
+                    ? `https://www.youtube.com/watch?v=${cand.id}`
+                    : '');
+              if (!ytUrl) continue;
+
+              // Stream audio bytes directly via yt-dlp so client IP/PO-token session matches YouTube CDN
+              const dlRes = await this._runYtDlpBuffer([
                 '-f',
-                'bestaudio[protocol^=http][protocol!*=m3u8][ext=m4a]/bestaudio[protocol^=http][protocol!*=m3u8][ext=webm]/bestaudio[protocol^=http][protocol!*=m3u8]/bestaudio',
+                'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
                 '--no-playlist',
-                '--dump-single-json',
+                '--no-warnings',
+                '-q',
+                '-o',
+                '-',
                 ytUrl
               ]);
 
-              if (infoRes.code === 0) {
-                try {
-                  const info = JSON.parse(infoRes.stdout);
-                  let directUrl = info.url;
-                  let ext = info.ext;
-                  let headers = info.http_headers || {};
-                  let protocol = String(info.protocol || '');
-
-                  const looksHls = (u, proto) =>
-                    String(proto || '').includes('m3u8') || /\.m3u8(?:\?|$)/i.test(String(u || ''));
-
-                  if ((!directUrl || looksHls(directUrl, protocol)) && Array.isArray(info.formats)) {
-                    const directAudio = info.formats
-                      .filter(
-                        (f) =>
-                          f &&
-                          f.url &&
-                          f.acodec &&
-                          f.acodec !== 'none' &&
-                          (!f.vcodec || f.vcodec === 'none') &&
-                          !looksHls(f.url, f.protocol)
-                      )
-                      .sort((a, b) => (Number(b.abr) || 0) - (Number(a.abr) || 0));
-                    if (directAudio[0]) {
-                      directUrl = directAudio[0].url;
-                      ext = directAudio[0].ext;
-                      protocol = String(directAudio[0].protocol || '');
-                      headers = directAudio[0].http_headers || headers;
-                    } else if (!directUrl) {
-                      const anyAudio = info.formats
-                        .filter((f) => f && f.url && f.acodec && f.acodec !== 'none' && (!f.vcodec || f.vcodec === 'none'))
-                        .sort((a, b) => (Number(b.abr) || 0) - (Number(a.abr) || 0));
-                      if (anyAudio[0]) {
-                        directUrl = anyAudio[0].url;
-                        ext = anyAudio[0].ext;
-                        protocol = String(anyAudio[0].protocol || '');
-                        headers = anyAudio[0].http_headers || headers;
-                      }
-                    }
-                  }
-
-                  if (directUrl) {
-                    const isHls = looksHls(directUrl, protocol);
-                    const entry = {
-                      url: directUrl,
-                      headers,
-                      contentType: isHls ? 'audio/mpeg' : mimeForExt(ext),
-                      isHls,
-                      expiresAt: Date.now() + STREAM_CACHE_TTL_MS
-                    };
-                    this.streamCache.set(cacheKey, entry);
-                    return entry;
-                  }
-                } catch {
-                  // Fall through to previewUrl fallback if present
-                }
+              if (dlRes.code === 0 && dlRes.buffer.length > 2048) {
+                const entry = {
+                  kind: 'buffer',
+                  buffer: dlRes.buffer,
+                  contentType: detectAudioMime(dlRes.buffer),
+                  expiresAt: Date.now() + STREAM_CACHE_TTL_MS
+                };
+                this._setCachedBuffer(cacheKey, entry);
+                return entry;
               }
             }
           }
@@ -425,6 +525,7 @@ export class StreamServer {
 
         if (previewUrl) {
           const entry = {
+            kind: 'url',
             url: previewUrl,
             headers: { 'User-Agent': 'Mozilla/5.0' },
             contentType: 'audio/mpeg',
@@ -465,66 +566,33 @@ export class StreamServer {
       previewUrl: urlObj.searchParams.get('preview') || ''
     };
 
-    let resolved = await this.resolveExternalStream(params);
+    const resolved = await this.resolveExternalStream(params);
 
-    if (resolved.isHls && this.ffmpegPath) {
-      res.writeHead(200, {
-        'Content-Type': 'audio/mpeg',
-        'Access-Control-Allow-Origin': '*'
-      });
-      if (req.method === 'HEAD') {
-        res.end();
-        return;
-      }
-      const proc = spawn(
-        this.ffmpegPath,
-        ['-v', 'error', '-i', resolved.url, '-f', 'mp3', '-b:a', '192k', 'pipe:1'],
-        { windowsHide: true }
-      );
-      proc.stdout.pipe(res);
-      req.on('close', () => {
-        if (!proc.killed) proc.kill();
-      });
-      proc.on('error', () => {
-        if (!res.destroyed) res.destroy();
-      });
+    if (resolved.kind === 'buffer' || resolved.buffer) {
+      this._serveBufferRange(req, res, resolved.buffer, resolved.contentType || 'audio/mp4');
       return;
     }
 
-    const fetchUpstream = async (targetEntry) => {
-      const reqHeaders = { ...(targetEntry.headers || {}) };
-      if (req.headers.range) {
-        reqHeaders.Range = req.headers.range;
-      }
-      const controller = new AbortController();
-      const onClose = () => controller.abort();
-      req.once('close', onClose);
-      try {
-        const upRes = await this.fetchImpl(targetEntry.url, {
-          method: req.method === 'HEAD' ? 'HEAD' : 'GET',
-          headers: reqHeaders,
-          signal: controller.signal
-        });
-        return { upRes, controller, onClose };
-      } catch (err) {
-        req.off('close', onClose);
-        throw err;
-      }
-    };
+    const reqHeaders = { ...(resolved.headers || {}) };
+    if (req.headers.range) {
+      reqHeaders.Range = req.headers.range;
+    }
+    const controller = new AbortController();
+    const onClose = () => controller.abort();
+    req.once('close', onClose);
 
-    let attempt = await fetchUpstream(resolved);
-    if ((attempt.upRes.status === 403 || attempt.upRes.status === 410) && params.title) {
-      req.off('close', attempt.onClose);
-      try {
-        await attempt.upRes.body?.cancel();
-      } catch {
-        // Ignore cancel failure
-      }
-      resolved = await this.resolveExternalStream({ ...params, forceRefresh: true });
-      attempt = await fetchUpstream(resolved);
+    let upRes;
+    try {
+      upRes = await this.fetchImpl(resolved.url, {
+        method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+        headers: reqHeaders,
+        signal: controller.signal
+      });
+    } catch (err) {
+      req.off('close', onClose);
+      throw err;
     }
 
-    const { upRes, onClose } = attempt;
     if (!upRes.ok && upRes.status !== 206) {
       req.off('close', onClose);
       this._sendError(res, 502, `Upstream stream error ${upRes.status}`);
@@ -532,7 +600,7 @@ export class StreamServer {
     }
 
     const outHeaders = {
-      'Content-Type': upRes.headers.get('content-type') || resolved.contentType || 'audio/mp4',
+      'Content-Type': upRes.headers.get('content-type') || resolved.contentType || 'audio/mpeg',
       'Accept-Ranges': upRes.headers.get('accept-ranges') || 'bytes',
       'Access-Control-Allow-Origin': '*'
     };
@@ -561,6 +629,8 @@ export class StreamServer {
 
   stop() {
     this.streamCache.clear();
+    this.bufferCache.clear();
+    this.cacheTotalBytes = 0;
     this.inFlightResolves.clear();
     if (!this.server) return Promise.resolve();
     return new Promise((resolve) => {

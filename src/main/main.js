@@ -78,6 +78,7 @@ async function initBackend() {
     library,
     coversDir: paths.coversDir,
     ffmpegPath: toolsStatus.ffmpegPath,
+    ffmpegDir: toolsStatus.ffmpegDir,
     ytDlpPath: toolsStatus.ytDlpPath,
     nodePath: toolsStatus.nodePath
   });
@@ -277,11 +278,24 @@ function registerIpc() {
     return store.updateExternalListPref(listId, patch);
   });
 
+  ipcMain.handle('yusic:externalList:addLocalTracks', (_event, { listId, trackIds }) => {
+    return store.addLocalTracksToExternalList(listId, trackIds);
+  });
+
+  ipcMain.handle('yusic:externalList:removeLocalTrack', (_event, { listId, trackId }) => {
+    return store.removeLocalTrackFromExternalList(listId, trackId);
+  });
+
   // Spotify Account & Live Streaming
   ipcMain.handle('yusic:spotify:getStatus', () => spotifyAccount.getStatus());
   ipcMain.handle('yusic:spotify:saveClientId', (_event, clientId) => spotifyAccount.setClientId(clientId));
   ipcMain.handle('yusic:spotify:resetClientId', () => spotifyAccount.resetClientId());
-  ipcMain.handle('yusic:spotify:login', (_event, clientId) => spotifyAccount.startLogin(clientId));
+  ipcMain.handle('yusic:spotify:login', (_event, payload) => {
+    if (payload && typeof payload === 'object') {
+      return spotifyAccount.startLogin(payload.clientId, { forceDialog: Boolean(payload.forceDialog) });
+    }
+    return spotifyAccount.startLogin(payload);
+  });
   ipcMain.handle('yusic:spotify:logout', () => spotifyAccount.logout());
   ipcMain.handle('yusic:spotify:openDashboard', () =>
     shell.openExternal('https://developer.spotify.com/dashboard')
@@ -291,8 +305,37 @@ function registerIpc() {
   ipcMain.handle('yusic:spotify:playlistTracks', (_event, { spotifyPlaylistId, offset, limit }) =>
     spotifyAccount.getPlaylistTracks(spotifyPlaylistId, { offset, limit })
   );
+  ipcMain.handle('yusic:spotify:createPlaylist', (_event, payload) =>
+    spotifyAccount.createPlaylist(payload)
+  );
+  ipcMain.handle('yusic:spotify:updatePlaylist', (_event, { spotifyPlaylistId, patch }) =>
+    spotifyAccount.updatePlaylistDetails(spotifyPlaylistId, patch)
+  );
+  ipcMain.handle('yusic:spotify:deletePlaylist', (_event, spotifyPlaylistId) =>
+    spotifyAccount.unfollowPlaylist(spotifyPlaylistId)
+  );
+  ipcMain.handle('yusic:spotify:addPlaylistItems', (_event, { spotifyPlaylistId, uris, position }) =>
+    spotifyAccount.addItemsToPlaylist(spotifyPlaylistId, uris, { position })
+  );
+  ipcMain.handle('yusic:spotify:removePlaylistItems', (_event, { spotifyPlaylistId, uris }) =>
+    spotifyAccount.removeItemsFromPlaylist(spotifyPlaylistId, uris)
+  );
+  ipcMain.handle('yusic:spotify:reorderPlaylistItems', (_event, { spotifyPlaylistId, ...opts }) =>
+    spotifyAccount.reorderPlaylistItems(spotifyPlaylistId, opts)
+  );
+  ipcMain.handle('yusic:spotify:librarySave', (_event, uris) => spotifyAccount.saveLibraryItems(uris));
+  ipcMain.handle('yusic:spotify:libraryRemove', (_event, uris) => spotifyAccount.removeLibraryItems(uris));
+  ipcMain.handle('yusic:spotify:libraryContains', (_event, uris) => spotifyAccount.checkLibraryContains(uris));
+  ipcMain.handle('yusic:spotify:topTracks', (_event, opts) => spotifyAccount.getTopTracks(opts));
+  ipcMain.handle('yusic:spotify:topArtists', (_event, opts) => spotifyAccount.getTopArtists(opts));
+  ipcMain.handle('yusic:spotify:savedAlbums', (_event, opts) => spotifyAccount.getSavedAlbums(opts));
+  ipcMain.handle('yusic:spotify:albumDetails', (_event, albumId) => spotifyAccount.getAlbumDetails(albumId));
+  ipcMain.handle('yusic:spotify:artistDetails', (_event, artistId) => spotifyAccount.getArtistDetails(artistId));
   ipcMain.handle('yusic:spotify:recent', (_event, opts) => spotifyAccount.getRecentlyPlayed(opts));
   ipcMain.handle('yusic:spotify:search', (_event, query) => spotifyAccount.searchTracks(query));
+  ipcMain.handle('yusic:spotify:searchCatalog', (_event, { query, ...opts }) =>
+    spotifyAccount.searchCatalog(query, opts)
+  );
   ipcMain.handle('yusic:spotify:openPublicLink', (_event, url) =>
     spotifyAccount.openPublicSpotifyLink(url)
   );
@@ -474,6 +517,14 @@ async function runSmokeTest() {
           document.getElementById('resizer-corner')
         );
 
+        const spotifyFullControlsPresent = Boolean(
+          document.getElementById('sp-tab-top') &&
+          document.getElementById('sp-tab-albums') &&
+          document.getElementById('btn-sp-new-playlist') &&
+          document.getElementById('sp-playlist-dialog') &&
+          document.getElementById('sp-add-local-dialog')
+        );
+
         // Dialog checks
         const plDialog = document.getElementById('playlist-dialog');
         document.getElementById('btn-new-playlist').click();
@@ -513,6 +564,7 @@ async function runSmokeTest() {
           eqBandsCount,
           zoomApplied,
           resizerHandlesPresent,
+          spotifyFullControlsPresent,
           dialogOpened,
           dialogClosed,
           updateDialogOpened,
@@ -543,9 +595,10 @@ async function runSmokeTest() {
       !uiCheck.eqPanelVisible ||
       uiCheck.eqBandsCount !== 10 ||
       Math.abs(uiCheck.zoomApplied - 1.15) > 0.02 ||
-      !uiCheck.resizerHandlesPresent
+      !uiCheck.resizerHandlesPresent ||
+      !uiCheck.spotifyFullControlsPresent
     ) {
-      throw new Error(`v1.0.2 UI check failed: ${JSON.stringify(uiCheck)}`);
+      throw new Error(`v1.0.3 UI check failed: ${JSON.stringify(uiCheck)}`);
     }
     const nextRepeat = { off: 'all', all: 'one', one: 'off' };
     const [r0, r1, r2, r3] = uiCheck.repeatCycle || [];

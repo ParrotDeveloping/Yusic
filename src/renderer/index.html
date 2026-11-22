@@ -94,6 +94,7 @@
             </button>
           </div>
           <div class="library-head-btns" id="spotify-lib-head-btns" hidden>
+            <button type="button" class="icon-btn" id="btn-sp-new-playlist" title="Yeni Spotify Playlisti Oluştur" aria-label="Yeni Spotify Playlisti Oluştur">+</button>
             <button type="button" class="icon-btn" id="btn-sp-sidebar-refresh" title="Spotify Kitaplığını Yenile" aria-label="Spotify Yenile">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -107,7 +108,7 @@
         </div>
 
         <div class="sidebar-footer">
-          <span class="app-version-label" id="app-version-label">Yusic v1.0.2</span>
+          <span class="app-version-label" id="app-version-label">Yusic v1.0.3</span>
           <button type="button" class="btn btn-ghost btn-xs update-check-btn" id="btn-check-updates" title="GitHub üzerinden güncellemeleri kontrol et">
             <span>Güncelleme Kontrol Et</span>
             <span class="update-dot" id="update-dot" hidden aria-hidden="true"></span>
@@ -217,12 +218,14 @@
         </div>
       </section>
 
-      <!-- Spotify Live Streaming View (Clean Tabbed Architecture) -->
+      <!-- Spotify Live Streaming View (Full Spotify Workspace) -->
       <section class="view view-spotify scroller" id="view-spotify" aria-label="Spotify Canlı Akış" hidden>
         <div class="spotify-header-bar">
           <div class="sp-tablist" id="sp-tablist" role="tablist" aria-label="Spotify bölümleri">
             <button type="button" role="tab" id="sp-tab-liked" class="tab-btn" data-sptab="liked" aria-selected="true">Beğenilen Şarkılar</button>
             <button type="button" role="tab" id="sp-tab-playlists" class="tab-btn" data-sptab="playlists" aria-selected="false">Listelerim</button>
+            <button type="button" role="tab" id="sp-tab-albums" class="tab-btn" data-sptab="albums" aria-selected="false">Albümlerim</button>
+            <button type="button" role="tab" id="sp-tab-top" class="tab-btn" data-sptab="top" aria-selected="false">Keşfet</button>
             <button type="button" role="tab" id="sp-tab-recent" class="tab-btn" data-sptab="recent" aria-selected="false">Son Dinlenenler</button>
             <button type="button" role="tab" id="sp-tab-search" class="tab-btn" data-sptab="search" aria-selected="false">Spotify'da Ara</button>
             <button type="button" role="tab" id="sp-tab-public" class="tab-btn" data-sptab="public" aria-selected="false">Linkten Dinle</button>
@@ -236,14 +239,23 @@
           </div>
         </div>
 
-        <!-- 1-Click Connect Card (Built-in Client ID, shown on account tabs when logged out) -->
+        <!-- Write Scope Upgrade Prompt for Pre-v1.0.3 Sessions -->
+        <div class="sp-scope-banner" id="sp-scope-banner" role="region" aria-label="Spotify izin yükseltme" hidden>
+          <div>
+            <strong>Spotify yazma ve keşfet izinlerini etkinleştir</strong>
+            <span>Playlist oluşturma, şarkı ekleme/silme, beğenme ve Keşfet özelliklerini kullanmak için izni tek tıkla yenile.</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-xs" id="btn-sp-upgrade-scopes">Yetkileri Güncelle</button>
+        </div>
+
+        <!-- 1-Click Connect Card -->
         <div class="spotify-connect-card" id="sp-connect-card">
           <div class="sp-connect-copy">
             <span class="hero-eyebrow hero-eyebrow--accent">SPOTIFY HESABI</span>
             <h2>Spotify Hesabını Tek Tıkla Bağla</h2>
             <p>
               Spotify Client ID uygulamaya hazır tanımlıdır. Hesabını bağlayarak
-              <strong>Beğenilen Şarkılarını</strong>, listelerini ve son dinlediklerini indirmeden akış olarak çalabilirsin.
+              <strong>Beğenilen Şarkılarını</strong>, listelerini, albümlerini, Spotify içi aramayı, playlist düzenlemeyi ve yerel şarkı birleştirmeyi tek yerden kullanabilirsin.
             </p>
             <div class="sp-connect-actions">
               <button type="button" class="btn btn-primary btn-lg" id="btn-sp-login">Spotify ile Bağlan</button>
@@ -253,35 +265,105 @@
           </div>
         </div>
 
-        <!-- Tab-scoped Search Form (only visible on 'Ara' tab) -->
+        <!-- Tab-scoped Search Form -->
         <div class="sp-tab-toolbar" id="sp-search-bar" hidden>
-          <form id="sp-search-form" class="sp-inline-form">
-            <label for="sp-search-input" class="sr-only">Spotify'da şarkı veya sanatçı ara</label>
-            <input type="search" id="sp-search-input" class="input-search input-search--plain" placeholder="Spotify kataloğunda şarkı veya sanatçı ara...">
-            <button type="submit" class="btn btn-primary">Ara</button>
-          </form>
+          <search>
+            <form id="sp-search-form" class="sp-inline-form" aria-label="Spotify katalog araması">
+              <label for="sp-search-input" class="sr-only">Spotify kataloğunda şarkı, albüm, sanatçı veya playlist ara</label>
+              <input
+                type="search"
+                id="sp-search-input"
+                name="spotifyQuery"
+                class="input-search input-search--plain"
+                placeholder="Şarkı, sanatçı, albüm veya playlist ara..."
+                autocorrect="off"
+                autocapitalize="none"
+                spellcheck="false"
+                enterkeyhint="search"
+              >
+              <button type="submit" class="btn btn-primary">Ara</button>
+            </form>
+          </search>
+          <div class="sp-chip-row" id="sp-search-type-chips" role="group" aria-label="Arama kategorisi">
+            <button type="button" class="preset-chip is-selected" data-search-type="all">Tümü</button>
+            <button type="button" class="preset-chip" data-search-type="tracks">Şarkılar</button>
+            <button type="button" class="preset-chip" data-search-type="artists">Sanatçılar</button>
+            <button type="button" class="preset-chip" data-search-type="albums">Albümler</button>
+            <button type="button" class="preset-chip" data-search-type="playlists">Listeler</button>
+          </div>
         </div>
 
-        <!-- Tab-scoped Public Link Form (only visible on 'Linkten Dinle' tab) -->
+        <!-- Tab-scoped Public Link Form -->
         <div class="sp-tab-toolbar" id="sp-public-bar" hidden>
-          <form id="sp-public-form" class="sp-inline-form">
-            <label for="sp-public-url" class="sr-only">Herkese açık Spotify şarkı, albüm veya playlist bağlantısı</label>
-            <input
-              type="url"
-              id="sp-public-url"
-              class="input-search input-search--plain"
-              placeholder="https://open.spotify.com/playlist/... veya şarkı linki yapıştır"
-              autocomplete="off"
-              spellcheck="false"
-            >
-            <button type="submit" class="btn btn-primary">İndirmeden Aç</button>
-          </form>
+          <search>
+            <form id="sp-public-form" class="sp-inline-form" aria-label="Herkese açık Spotify linki aç">
+              <label for="sp-public-url" class="sr-only">Herkese açık Spotify şarkı, albüm veya playlist bağlantısı</label>
+              <input
+                type="url"
+                id="sp-public-url"
+                name="spotifyPublicUrl"
+                class="input-search input-search--plain"
+                placeholder="https://open.spotify.com/playlist/... veya şarkı linki yapıştır"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="none"
+                spellcheck="false"
+                enterkeyhint="go"
+              >
+              <button type="submit" class="btn btn-primary">İndirmeden Aç</button>
+            </form>
+          </search>
         </div>
 
-        <!-- Spotify Playlists Grid -->
-        <div class="sp-playlists-grid" id="sp-playlists-grid" hidden></div>
+        <!-- Keşfet (Top Artists + Top Tracks) -->
+        <div id="sp-top-area" hidden>
+          <div class="sp-section-head">
+            <div>
+              <h2 class="section-heading">En Çok Dinlediklerin</h2>
+            </div>
+            <div class="sp-chip-row" id="sp-top-range-row" role="group" aria-label="Zaman aralığı">
+              <button type="button" class="preset-chip is-selected" data-time-range="short_term">Son 4 Hafta</button>
+              <button type="button" class="preset-chip" data-time-range="medium_term">Son 6 Ay</button>
+              <button type="button" class="preset-chip" data-time-range="long_term">Tüm Zamanlar</button>
+            </div>
+          </div>
+          <div class="sp-cards-grid sp-cards-grid--compact" id="sp-top-artists-grid"></div>
+        </div>
 
-        <!-- Spotify Active Track Collection -->
+        <!-- Multi-Type Catalog Search Results (Artists / Albums / Playlists cards) -->
+        <div class="sp-search-sections" id="sp-search-results" hidden>
+          <div id="sp-search-artists-sec" hidden>
+            <h2 class="section-heading">Sanatçılar</h2>
+            <div class="sp-cards-grid sp-cards-grid--compact" id="sp-search-artists-grid"></div>
+          </div>
+          <div id="sp-search-albums-sec" hidden>
+            <h2 class="section-heading">Albümler</h2>
+            <div class="sp-cards-grid" id="sp-search-albums-grid"></div>
+          </div>
+          <div id="sp-search-playlists-sec" hidden>
+            <h2 class="section-heading">Spotify Listeleri</h2>
+            <div class="sp-cards-grid" id="sp-search-playlists-grid"></div>
+          </div>
+        </div>
+
+        <!-- Spotify Playlists Grid View -->
+        <div id="sp-playlists-view" hidden>
+          <div class="sp-section-head">
+            <h2 class="section-heading">Spotify Listelerin</h2>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-sp-create-pl-grid">+ Yeni Spotify Playlisti</button>
+          </div>
+          <div class="sp-playlists-grid" id="sp-playlists-grid"></div>
+        </div>
+
+        <!-- Saved Albums Grid View -->
+        <div id="sp-albums-view" hidden>
+          <div class="sp-section-head">
+            <h2 class="section-heading">Kayıtlı Albümlerin</h2>
+          </div>
+          <div class="sp-cards-grid" id="sp-albums-grid"></div>
+        </div>
+
+        <!-- Spotify Active Track Collection / Detail -->
         <div id="sp-collection-area" hidden>
           <header class="hero-header hero-header--compact" id="sp-hero">
             <div class="hero-cover" id="sp-hero-cover">
@@ -291,7 +373,10 @@
               </button>
             </div>
             <div class="hero-info">
-              <span class="hero-eyebrow hero-eyebrow--accent" id="sp-hero-eyebrow">SPOTIFY AKIŞ</span>
+              <div class="hero-eyebrow-row">
+                <button type="button" class="btn btn-ghost btn-xs" id="btn-sp-back" hidden>← Geri</button>
+                <span class="hero-eyebrow hero-eyebrow--accent" id="sp-hero-eyebrow">SPOTIFY AKIŞ</span>
+              </div>
               <h1 class="hero-title" id="sp-hero-title">Beğenilen Şarkılar</h1>
               <p class="hero-desc" id="sp-hero-desc" hidden></p>
               <div class="hero-meta-row">
@@ -310,6 +395,10 @@
               </button>
               <button type="button" class="btn btn-ghost btn-sm" id="btn-sp-shuffle-all">Karışık Çal</button>
               <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-list-speed">Liste Hızı</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-add-local" hidden>+ Yerel Şarkı Ekle</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-edit-pl" hidden>Düzenle</button>
+              <button type="button" class="btn btn-danger btn-sm" id="btn-sp-delete-pl" hidden>Listeyi Sil</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-save-entity" aria-pressed="false" hidden>♡ Kaydet</button>
             </div>
 
             <div class="action-bar-right">
@@ -336,6 +425,11 @@
 
           <div class="sp-load-more-wrap" id="sp-load-more-wrap" hidden>
             <button type="button" class="btn btn-secondary" id="btn-sp-load-more">Daha Fazla Yükle</button>
+          </div>
+
+          <div class="sp-artist-albums-wrap" id="sp-artist-albums-wrap" hidden>
+            <h2 class="section-heading">Sanatçının Albümleri &amp; Teklileri</h2>
+            <div class="sp-cards-grid" id="sp-artist-albums-grid"></div>
           </div>
         </div>
       </section>
@@ -545,7 +639,7 @@
                     <h3>Uygulama Güncelleme Durumu</h3>
                     <p id="settings-update-desc">GitHub Releases üzerinden en güncel Yusic sürümünü kontrol et.</p>
                   </div>
-                  <strong class="scale-readout" id="settings-cur-ver">v1.0.2</strong>
+                  <strong class="scale-readout" id="settings-cur-ver">v1.0.3</strong>
                 </div>
                 <div class="settings-inline-row">
                   <button type="button" class="btn btn-primary btn-sm" id="btn-settings-check-update">Güncelleme Kontrol Et</button>
@@ -585,6 +679,7 @@
           <div class="now-title" id="now-title">Şarkı seçilmedi</div>
           <div class="now-artist" id="now-artist">Çalmak için listeden bir şarkıya tıkla</div>
         </div>
+        <button type="button" class="ctrl-btn ctrl-btn--sm track-like-btn" id="btn-now-like" aria-pressed="false" title="Beğenilen Şarkılara Ekle / Çıkar" aria-label="Spotify şarkısını beğen" hidden>♡</button>
         <canvas class="visualizer-canvas" id="visualizer-canvas" width="76" height="28" aria-hidden="true"></canvas>
       </div>
 
@@ -850,12 +945,82 @@
         <div class="add-pl-list scroller" id="add-pl-list"></div>
         <div class="add-pl-quick-create">
           <label for="add-pl-new-name" class="sr-only">Yeni playlist adı</label>
-          <input type="text" id="add-pl-new-name" class="text-input" placeholder="Veya yeni playlist adı yaz..." maxlength="80">
+          <input type="text" id="add-pl-new-name" name="newLocalPlaylistName" class="text-input" placeholder="Veya yeni playlist adı yaz..." maxlength="80">
           <button type="button" class="btn btn-secondary btn-sm" id="btn-add-pl-quick">Oluştur &amp; Ekle</button>
         </div>
       </div>
       <div class="dialog-footer">
         <button type="submit" value="cancel" class="btn btn-secondary" autofocus>Kapat</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Spotify Playlist Create / Edit Dialog -->
+  <dialog id="sp-playlist-dialog" class="yusic-dialog" closedby="any" aria-labelledby="sp-pl-dialog-title">
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="sp-pl-dialog-title">Yeni Spotify Playlisti</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body">
+        <label for="sp-pl-name" class="field-label">Playlist Adı <span aria-hidden="true">*</span></label>
+        <input type="text" id="sp-pl-name" name="spPlaylistName" class="text-input" placeholder="Örn: Gece Sürüşü" maxlength="100" autofocus required>
+        <label for="sp-pl-desc" class="field-label field-label--spaced">Açıklama</label>
+        <textarea id="sp-pl-desc" name="spPlaylistDesc" class="text-input text-area" rows="3" maxlength="300" placeholder="İsteğe bağlı playlist açıklaması..."></textarea>
+        <div class="settings-field-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="sp-pl-public" name="spPlaylistPublic">
+            <span>Herkese açık (Spotify profilinde görünür)</span>
+          </label>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="cancel" class="btn btn-secondary" formnovalidate>Vazgeç</button>
+        <button type="submit" value="confirm" class="btn btn-primary" id="sp-pl-submit">Oluştur</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Add Spotify Track to Spotify Playlist Dialog -->
+  <dialog id="sp-add-to-playlist-dialog" class="yusic-dialog" closedby="any" aria-labelledby="sp-add-pl-title">
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="sp-add-pl-title">Spotify Listesine Ekle</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-subtitle" id="sp-add-pl-track-name"></p>
+        <div class="add-pl-list scroller" id="sp-add-pl-list"></div>
+        <div class="add-pl-quick-create">
+          <label for="sp-add-pl-new-name" class="sr-only">Yeni Spotify playlist adı</label>
+          <input type="text" id="sp-add-pl-new-name" name="newSpotifyPlaylistName" class="text-input" placeholder="Veya yeni Spotify playlisti aç..." maxlength="100">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-add-pl-quick">Oluştur &amp; Ekle</button>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="cancel" class="btn btn-secondary" autofocus>Kapat</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Attach Local Music Tracks to a Spotify Playlist Dialog -->
+  <dialog id="sp-add-local-dialog" class="yusic-dialog yusic-dialog--wide" closedby="any" aria-labelledby="sp-add-local-title">
+    <form method="dialog" class="dialog-form">
+      <div class="dialog-header">
+        <h2 id="sp-add-local-title">Spotify Listesine Yerel Şarkı Ekle</h2>
+        <button type="submit" value="cancel" class="icon-btn" aria-label="Kapat">×</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-subtitle" id="sp-add-local-target"></p>
+        <div class="sp-local-toolbar">
+          <label for="sp-local-filter-input" class="sr-only">Yerel şarkılarda ara</label>
+          <input type="search" id="sp-local-filter-input" name="localTrackFilter" class="input-search input-search--plain" placeholder="Yerel şarkı adı veya sanatçı ara..." autofocus>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-sp-local-pick-files">Dosyadan İçe Aktar</button>
+        </div>
+        <div class="add-pl-list scroller sp-local-picker-list" id="sp-local-picker-list"></div>
+      </div>
+      <div class="dialog-footer">
+        <button type="submit" value="cancel" class="btn btn-primary">Tamam</button>
       </div>
     </form>
   </dialog>
@@ -886,7 +1051,7 @@
         <div class="update-version-grid">
           <div class="update-ver-box">
             <span class="field-label">Mevcut Sürüm</span>
-            <strong id="update-cur-ver">v1.0.2</strong>
+            <strong id="update-cur-ver">v1.0.3</strong>
           </div>
           <div class="update-ver-box">
             <span class="field-label">GitHub Son Sürüm</span>

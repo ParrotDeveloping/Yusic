@@ -143,3 +143,35 @@ test('YusicStore enforces v1.0.2 uiScale, 10-band eq, layout bounds, and default
   assert.deepEqual(reloaded.getSettings().layout, updated.layout);
   assert.deepEqual(reloaded.getSettings().eq, updated.eq);
 });
+
+test('YusicStore persists Spotify scopes and hybrid localTrackIds inside external playlists', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'yusic-store-v103-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const dbPath = path.join(dir, 'yusic-db.json');
+  const store = new YusicStore(dbPath);
+
+  store.setSpotifyAuth({
+    scopes: ['playlist-modify-private', 'user-library-modify', 'user-top-read']
+  });
+  store.addLocalTracksToExternalList('spotify:pl:abc', ['loc_1', 'loc_2', 'loc_1']);
+  let prefs = store.getExternalListPrefs();
+  assert.deepEqual(prefs['spotify:pl:abc'].localTrackIds, ['loc_1', 'loc_2']);
+
+  store.removeLocalTrackFromExternalList('spotify:pl:abc', 'loc_1');
+  prefs = store.getExternalListPrefs();
+  assert.deepEqual(prefs['spotify:pl:abc'].localTrackIds, ['loc_2']);
+
+  store.removeTrackFromAllPlaylists('loc_2');
+  prefs = store.getExternalListPrefs();
+  assert.deepEqual(prefs['spotify:pl:abc'].localTrackIds, []);
+
+  const reloaded = new YusicStore(dbPath);
+  assert.deepEqual(reloaded.getSpotifyAuth().scopes, [
+    'playlist-modify-private',
+    'user-library-modify',
+    'user-top-read'
+  ]);
+  reloaded.clearSpotifyTokens();
+  assert.deepEqual(reloaded.getSpotifyAuth().scopes, []);
+});

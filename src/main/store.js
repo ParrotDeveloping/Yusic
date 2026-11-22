@@ -40,6 +40,7 @@ const DEFAULT_SPOTIFY_AUTH = Object.freeze({
   accessToken: '',
   refreshToken: '',
   expiresAt: 0,
+  scopes: [],
   user: null
 });
 
@@ -105,7 +106,7 @@ function createEmptyDb() {
     },
     trackSpeedOverrides: {},
     externalListPrefs: {},
-    spotifyAuth: { ...DEFAULT_SPOTIFY_AUTH },
+    spotifyAuth: { ...DEFAULT_SPOTIFY_AUTH, scopes: [] },
     metaCache: {}
   };
 }
@@ -146,7 +147,8 @@ export class YusicStore {
         externalListPrefs[String(k)] = {
           speedOverride: sanitizeSpeedOverride(v.speedOverride),
           viewMode: sanitizeViewMode(v.viewMode, 'list'),
-          coverFile: v.coverFile ? String(v.coverFile) : null
+          coverFile: v.coverFile ? String(v.coverFile) : null,
+          localTrackIds: Array.isArray(v.localTrackIds) ? [...new Set(v.localTrackIds.map(String))] : []
         };
       }
 
@@ -175,6 +177,9 @@ export class YusicStore {
           accessToken: String(rawAuth.accessToken || ''),
           refreshToken: String(rawAuth.refreshToken || ''),
           expiresAt: Number(rawAuth.expiresAt) || 0,
+          scopes: Array.isArray(rawAuth.scopes)
+            ? [...new Set(rawAuth.scopes.map((s) => String(s || '').trim()).filter(Boolean))]
+            : [],
           user: rawAuth.user && typeof rawAuth.user === 'object' ? { ...rawAuth.user } : null
         },
         metaCache: parsed?.metaCache && typeof parsed.metaCache === 'object' ? { ...parsed.metaCache } : {}
@@ -326,6 +331,15 @@ export class YusicStore {
         changed = true;
       }
     }
+    for (const pref of Object.values(this.data.externalListPrefs)) {
+      if (Array.isArray(pref?.localTrackIds)) {
+        const next = pref.localTrackIds.filter((id) => id !== trackId);
+        if (next.length !== pref.localTrackIds.length) {
+          pref.localTrackIds = next;
+          changed = true;
+        }
+      }
+    }
     if (changed) this.save();
     return changed;
   }
@@ -389,7 +403,8 @@ export class YusicStore {
       out[k] = {
         speedOverride: v.speedOverride ? { ...v.speedOverride } : null,
         viewMode: v.viewMode || 'list',
-        coverFile: v.coverFile || null
+        coverFile: v.coverFile || null,
+        localTrackIds: Array.isArray(v.localTrackIds) ? [...v.localTrackIds] : []
       };
     }
     return out;
@@ -401,9 +416,13 @@ export class YusicStore {
     const prev = this.data.externalListPrefs[key] || {
       speedOverride: null,
       viewMode: 'list',
-      coverFile: null
+      coverFile: null,
+      localTrackIds: []
     };
-    const next = { ...prev };
+    const next = {
+      ...prev,
+      localTrackIds: Array.isArray(prev.localTrackIds) ? [...prev.localTrackIds] : []
+    };
     if ('speedOverride' in patch) {
       next.speedOverride = sanitizeSpeedOverride(patch.speedOverride);
     }
@@ -413,7 +432,43 @@ export class YusicStore {
     if ('coverFile' in patch) {
       next.coverFile = patch.coverFile ? String(patch.coverFile) : null;
     }
+    if (Array.isArray(patch.localTrackIds)) {
+      next.localTrackIds = [...new Set(patch.localTrackIds.map(String))];
+    }
     this.data.externalListPrefs[key] = next;
+    this.save();
+    return this.getExternalListPrefs();
+  }
+
+  addLocalTracksToExternalList(listId, trackIds = []) {
+    const key = String(listId || '').trim();
+    if (!key) return this.getExternalListPrefs();
+    const prev = this.data.externalListPrefs[key] || {
+      speedOverride: null,
+      viewMode: 'list',
+      coverFile: null,
+      localTrackIds: []
+    };
+    const current = Array.isArray(prev.localTrackIds) ? [...prev.localTrackIds] : [];
+    const seen = new Set(current);
+    for (const rawId of trackIds || []) {
+      const id = String(rawId || '').trim();
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        current.push(id);
+      }
+    }
+    this.data.externalListPrefs[key] = { ...prev, localTrackIds: current };
+    this.save();
+    return this.getExternalListPrefs();
+  }
+
+  removeLocalTrackFromExternalList(listId, trackId) {
+    const key = String(listId || '').trim();
+    if (!key || !this.data.externalListPrefs[key]) return this.getExternalListPrefs();
+    const prev = this.data.externalListPrefs[key];
+    const nextIds = (prev.localTrackIds || []).filter((id) => id !== String(trackId));
+    this.data.externalListPrefs[key] = { ...prev, localTrackIds: nextIds };
     this.save();
     return this.getExternalListPrefs();
   }
@@ -422,6 +477,7 @@ export class YusicStore {
     return {
       ...this.data.spotifyAuth,
       clientId: this.data.spotifyAuth.clientId || DEFAULT_SPOTIFY_CLIENT_ID,
+      scopes: Array.isArray(this.data.spotifyAuth.scopes) ? [...this.data.spotifyAuth.scopes] : [],
       user: this.data.spotifyAuth.user ? { ...this.data.spotifyAuth.user } : null
     };
   }
@@ -432,11 +488,17 @@ export class YusicStore {
       patch.clientId !== undefined
         ? String(patch.clientId).trim() || DEFAULT_SPOTIFY_CLIENT_ID
         : prev.clientId || DEFAULT_SPOTIFY_CLIENT_ID;
+    const nextScopes = Array.isArray(patch.scopes)
+      ? [...new Set(patch.scopes.map((s) => String(s || '').trim()).filter(Boolean))]
+      : Array.isArray(prev.scopes)
+        ? [...prev.scopes]
+        : [];
     this.data.spotifyAuth = {
       clientId: nextClientId,
       accessToken: patch.accessToken !== undefined ? String(patch.accessToken) : prev.accessToken,
       refreshToken: patch.refreshToken !== undefined ? String(patch.refreshToken) : prev.refreshToken,
       expiresAt: patch.expiresAt !== undefined ? Number(patch.expiresAt) || 0 : prev.expiresAt,
+      scopes: nextScopes,
       user: patch.user !== undefined ? (patch.user ? { ...patch.user } : null) : prev.user
     };
     this.save();
@@ -449,6 +511,7 @@ export class YusicStore {
       accessToken: '',
       refreshToken: '',
       expiresAt: 0,
+      scopes: [],
       user: null
     };
     this.save();

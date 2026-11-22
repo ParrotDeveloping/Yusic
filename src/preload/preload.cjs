@@ -50,20 +50,46 @@ contextBridge.exposeInMainWorld('yusic', {
     ipcRenderer.invoke('yusic:speed:setTrackOverride', { trackId, override }),
   updateExternalListPref: (listId, patch) =>
     ipcRenderer.invoke('yusic:externalList:updatePref', { listId, patch }),
+  addLocalTracksToSpotifyList: (listId, trackIds) =>
+    ipcRenderer.invoke('yusic:externalList:addLocalTracks', { listId, trackIds }),
+  removeLocalTrackFromSpotifyList: (listId, trackId) =>
+    ipcRenderer.invoke('yusic:externalList:removeLocalTrack', { listId, trackId }),
 
   // Spotify Account & Live Streaming
   getSpotifyStatus: () => ipcRenderer.invoke('yusic:spotify:getStatus'),
   saveSpotifyClientId: (clientId) => ipcRenderer.invoke('yusic:spotify:saveClientId', clientId),
   resetSpotifyClientId: () => ipcRenderer.invoke('yusic:spotify:resetClientId'),
-  loginSpotify: (clientId) => ipcRenderer.invoke('yusic:spotify:login', clientId),
+  loginSpotify: (clientId, opts = null) =>
+    opts ? ipcRenderer.invoke('yusic:spotify:login', { clientId, ...opts }) : ipcRenderer.invoke('yusic:spotify:login', clientId),
   logoutSpotify: () => ipcRenderer.invoke('yusic:spotify:logout'),
   openSpotifyDashboard: () => ipcRenderer.invoke('yusic:spotify:openDashboard'),
   getSpotifyLikedSongs: (opts) => ipcRenderer.invoke('yusic:spotify:liked', opts),
   getSpotifyUserPlaylists: (opts) => ipcRenderer.invoke('yusic:spotify:playlists', opts),
   getSpotifyPlaylistTracks: (spotifyPlaylistId, opts) =>
     ipcRenderer.invoke('yusic:spotify:playlistTracks', { spotifyPlaylistId, ...(opts || {}) }),
+  createSpotifyPlaylist: (payload) => ipcRenderer.invoke('yusic:spotify:createPlaylist', payload),
+  updateSpotifyPlaylist: (spotifyPlaylistId, patch) =>
+    ipcRenderer.invoke('yusic:spotify:updatePlaylist', { spotifyPlaylistId, patch }),
+  deleteSpotifyPlaylist: (spotifyPlaylistId) =>
+    ipcRenderer.invoke('yusic:spotify:deletePlaylist', spotifyPlaylistId),
+  addSpotifyPlaylistItems: (spotifyPlaylistId, uris, position) =>
+    ipcRenderer.invoke('yusic:spotify:addPlaylistItems', { spotifyPlaylistId, uris, position }),
+  removeSpotifyPlaylistItems: (spotifyPlaylistId, uris) =>
+    ipcRenderer.invoke('yusic:spotify:removePlaylistItems', { spotifyPlaylistId, uris }),
+  reorderSpotifyPlaylistItems: (spotifyPlaylistId, opts) =>
+    ipcRenderer.invoke('yusic:spotify:reorderPlaylistItems', { spotifyPlaylistId, ...(opts || {}) }),
+  saveSpotifyLibrary: (uris) => ipcRenderer.invoke('yusic:spotify:librarySave', uris),
+  removeSpotifyLibrary: (uris) => ipcRenderer.invoke('yusic:spotify:libraryRemove', uris),
+  checkSpotifyLibrary: (uris) => ipcRenderer.invoke('yusic:spotify:libraryContains', uris),
+  getSpotifyTopTracks: (opts) => ipcRenderer.invoke('yusic:spotify:topTracks', opts),
+  getSpotifyTopArtists: (opts) => ipcRenderer.invoke('yusic:spotify:topArtists', opts),
+  getSpotifySavedAlbums: (opts) => ipcRenderer.invoke('yusic:spotify:savedAlbums', opts),
+  getSpotifyAlbum: (albumId) => ipcRenderer.invoke('yusic:spotify:albumDetails', albumId),
+  getSpotifyArtist: (artistId) => ipcRenderer.invoke('yusic:spotify:artistDetails', artistId),
   getSpotifyRecent: (opts) => ipcRenderer.invoke('yusic:spotify:recent', opts),
   searchSpotifyTracks: (query) => ipcRenderer.invoke('yusic:spotify:search', query),
+  searchSpotifyCatalog: (query, opts) =>
+    ipcRenderer.invoke('yusic:spotify:searchCatalog', { query, ...(opts || {}) }),
   openPublicSpotifyLink: (url) => ipcRenderer.invoke('yusic:spotify:openPublicLink', url),
   prefetchSpotifyTrack: (track) => ipcRenderer.invoke('yusic:spotify:prefetch', track),
 
