@@ -108,7 +108,7 @@
         </div>
 
         <div class="sidebar-footer">
-          <span class="app-version-label" id="app-version-label">Yusic v1.0.3</span>
+          <span class="app-version-label" id="app-version-label">Yusic v1.0.4</span>
           <button type="button" class="btn btn-ghost btn-xs update-check-btn" id="btn-check-updates" title="GitHub üzerinden güncellemeleri kontrol et">
             <span>Güncelleme Kontrol Et</span>
             <span class="update-dot" id="update-dot" hidden aria-hidden="true"></span>
@@ -639,7 +639,7 @@
                     <h3>Uygulama Güncelleme Durumu</h3>
                     <p id="settings-update-desc">GitHub Releases üzerinden en güncel Yusic sürümünü kontrol et.</p>
                   </div>
-                  <strong class="scale-readout" id="settings-cur-ver">v1.0.3</strong>
+                  <strong class="scale-readout" id="settings-cur-ver">v1.0.4</strong>
                 </div>
                 <div class="settings-inline-row">
                   <button type="button" class="btn btn-primary btn-sm" id="btn-settings-check-update">Güncelleme Kontrol Et</button>
@@ -656,10 +656,53 @@
                   <span><code>M</code> Sesi Kapat / Aç</span>
                   <span><code>S</code> Karışık Çal</span>
                   <span><code>R</code> Döngü Modu</span>
+                  <span><code>L</code> Şarkı Sözleri</span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+      <!-- Spotify-Style Synchronized Lyrics View -->
+      <section class="view view-lyrics" id="view-lyrics" aria-label="Şarkı Sözleri" hidden>
+        <div class="lyrics-backdrop" id="lyrics-backdrop" aria-hidden="true"></div>
+
+        <header class="lyrics-topbar">
+          <div class="lyrics-track-pill">
+            <div class="lyrics-mini-cover" id="lyrics-mini-cover">♪</div>
+            <div class="lyrics-track-meta">
+              <h1 class="lyrics-track-title" id="lyrics-track-title">Şarkı seçilmedi</h1>
+              <div class="lyrics-track-subrow">
+                <span class="lyrics-track-artist" id="lyrics-track-artist">Sözleri görmek için bir şarkı çal</span>
+                <span class="lyrics-source-badge" id="lyrics-source-badge" hidden></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lyrics-topbar-actions">
+            <div class="lyrics-offset-group" id="lyrics-offset-group" title="Senkron zamanlamasını ayarla">
+              <button type="button" class="btn btn-ghost btn-xs" id="btn-lyrics-offset-minus" title="0.5 sn geri al">-0.5s</button>
+              <span class="lyrics-offset-val" id="lyrics-offset-val">0.0s</span>
+              <button type="button" class="btn btn-ghost btn-xs" id="btn-lyrics-offset-plus" title="0.5 sn ileri al">+0.5s</button>
+              <button type="button" class="btn btn-ghost btn-xs" id="btn-lyrics-offset-reset" hidden>Sıfırla</button>
+            </div>
+            <button type="button" class="btn btn-secondary btn-xs" id="btn-lyrics-search-toggle" aria-expanded="false">Farklı Söz Ara</button>
+            <button type="button" class="btn btn-ghost btn-xs" id="btn-lyrics-refresh" title="Şarkı sözlerini yeniden algıla">Yenile</button>
+            <button type="button" class="btn btn-secondary btn-xs" id="btn-lyrics-close" title="Şarkı Sözlerini Kapat (L)">Kapat</button>
+          </div>
+        </header>
+
+        <div class="lyrics-search-panel" id="lyrics-search-panel" hidden>
+          <form id="lyrics-search-form" class="lyrics-search-form">
+            <label for="lyrics-search-input" class="sr-only">Şarkı sözü ara</label>
+            <input type="search" id="lyrics-search-input" class="input-search input-search--plain" placeholder="Sanatçı ve şarkı adını yaz (örn: Tarkan Şımarık)..." autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-sm">Söz Ara</button>
+          </form>
+          <div class="lyrics-search-results scroller" id="lyrics-search-results"></div>
+        </div>
+
+        <div class="lyrics-stage-wrap">
+          <div class="lyrics-stage scroller" id="lyrics-stage" role="region" aria-label="Senkron şarkı sözleri"></div>
+          <button type="button" class="btn btn-primary btn-xs lyrics-resync-btn" id="btn-lyrics-resync" hidden>Aktif Satıra Dön</button>
         </div>
       </section>
     </main>
@@ -732,6 +775,22 @@
       </div>
 
       <div class="player-right">
+        <button
+          type="button"
+          class="speed-trigger lyrics-toggle-btn"
+          id="btn-lyrics-toggle"
+          aria-pressed="false"
+          title="Senkron Şarkı Sözleri (L)"
+          aria-label="Şarkı Sözleri"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+          <span>Sözler</span>
+        </button>
+
         <button
           type="button"
           class="speed-trigger"
@@ -1051,7 +1110,7 @@
         <div class="update-version-grid">
           <div class="update-ver-box">
             <span class="field-label">Mevcut Sürüm</span>
-            <strong id="update-cur-ver">v1.0.3</strong>
+            <strong id="update-cur-ver">v1.0.4</strong>
           </div>
           <div class="update-ver-box">
             <span class="field-label">GitHub Son Sürüm</span>

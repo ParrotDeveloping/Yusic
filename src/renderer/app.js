@@ -6,6 +6,7 @@ import {
   resolveEffectiveSpeed
 } from '../main/playbackLogic.js';
 import { compareSemver } from '../main/versionUtils.js';
+import { cleanTrackMetadataForLyrics, findActiveLyricIndex } from '../main/lyricsLogic.js';
 
 const audio = document.getElementById('audio-player');
 
@@ -73,6 +74,28 @@ const els = {
   viewSpotify: document.getElementById('view-spotify'),
   viewDownloader: document.getElementById('view-downloader'),
   viewSettings: document.getElementById('view-settings'),
+  viewLyrics: document.getElementById('view-lyrics'),
+
+  // Lyrics View
+  lyricsBackdrop: document.getElementById('lyrics-backdrop'),
+  lyricsMiniCover: document.getElementById('lyrics-mini-cover'),
+  lyricsTrackTitle: document.getElementById('lyrics-track-title'),
+  lyricsTrackArtist: document.getElementById('lyrics-track-artist'),
+  lyricsSourceBadge: document.getElementById('lyrics-source-badge'),
+  lyricsOffsetGroup: document.getElementById('lyrics-offset-group'),
+  btnLyricsOffsetMinus: document.getElementById('btn-lyrics-offset-minus'),
+  lyricsOffsetVal: document.getElementById('lyrics-offset-val'),
+  btnLyricsOffsetPlus: document.getElementById('btn-lyrics-offset-plus'),
+  btnLyricsOffsetReset: document.getElementById('btn-lyrics-offset-reset'),
+  btnLyricsSearchToggle: document.getElementById('btn-lyrics-search-toggle'),
+  btnLyricsRefresh: document.getElementById('btn-lyrics-refresh'),
+  btnLyricsClose: document.getElementById('btn-lyrics-close'),
+  lyricsSearchPanel: document.getElementById('lyrics-search-panel'),
+  lyricsSearchForm: document.getElementById('lyrics-search-form'),
+  lyricsSearchInput: document.getElementById('lyrics-search-input'),
+  lyricsSearchResults: document.getElementById('lyrics-search-results'),
+  lyricsStage: document.getElementById('lyrics-stage'),
+  btnLyricsResync: document.getElementById('btn-lyrics-resync'),
 
   // Local Library View
   libHero: document.getElementById('lib-hero'),
@@ -238,6 +261,7 @@ const els = {
   timeTotal: document.getElementById('time-total'),
   seekSlider: document.getElementById('seek-slider'),
 
+  btnLyricsToggle: document.getElementById('btn-lyrics-toggle'),
   btnEqShortcut: document.getElementById('btn-eq-shortcut'),
   btnSpeedPanel: document.getElementById('btn-speed-panel'),
   speedTriggerSource: document.getElementById('speed-trigger-source'),
@@ -334,7 +358,7 @@ const els = {
 
 const state = {
   muzikDir: '',
-  appVersion: '1.0.3',
+  appVersion: '1.0.4',
   isPackaged: false,
   serverUrl: '',
   serverToken: '',
@@ -369,8 +393,19 @@ const state = {
     layout: { ...DEFAULT_LAYOUT }
   },
 
-  viewTab: 'library', // 'library' | 'spotify' | 'downloader' | 'settings'
+  viewTab: 'library', // 'library' | 'spotify' | 'downloader' | 'settings' | 'lyrics'
   settingsTab: 'appearance', // 'appearance' | 'audio' | 'spotify' | 'updates'
+  lyrics: {
+    trackId: null,
+    trackKey: '',
+    loading: false,
+    data: null,
+    activeLineIdx: -1,
+    userScrolledUntil: 0,
+    prevViewTab: 'library',
+    searchOpen: false,
+    searchResults: []
+  },
   activePlaylistId: null,
   searchQuery: '',
   sortBy: 'title',
@@ -1551,6 +1586,7 @@ async function playAtQueueIndex(index) {
   state.currentTrackId = trackId;
   updateNowPlayingUI(track, track.source === 'spotify');
   highlightPlayingRows();
+  loadLyricsForTrack(track);
 
   audio.pause();
   audio.src = audioUrlForTrack(track);
@@ -2703,12 +2739,297 @@ function renderLocalSidebarItems() {
   }
 }
 
+/* ---------------- Spotify-Style Synchronized Lyrics ---------------- */
+let lyricsLoadToken = 0;
+let lyricsRafId = 0;
+
+function serializeTrackForLyrics(track) {
+  if (!track) return null;
+  return {
+    id: track.id,
+    title: track.title || '',
+    artist: track.artist || '',
+    album: track.album || '',
+    fileName: track.fileName || '',
+    fullPath: track.fullPath || '',
+    duration: Number(track.duration || 0),
+    durationMs: Number(track.durationMs || 0),
+    source: track.source || 'local'
+  };
+}
+
+async function loadLyricsForTrack(track, forceRefresh = false) {
+  if (!track || !window.yusic?.getLyrics) return;
+  const token = ++lyricsLoadToken;
+  state.lyrics.trackId = track.id;
+  state.lyrics.loading = true;
+  state.lyrics.activeLineIdx = -1;
+  state.lyrics.userScrolledUntil = 0;
+  if (state.viewTab === 'lyrics') renderLyricsView();
+
+  try {
+    const res = await window.yusic.getLyrics(serializeTrackForLyrics(track), forceRefresh);
+    if (token !== lyricsLoadToken) return;
+    state.lyrics.data = res;
+    state.lyrics.trackKey = res?.trackKey || track.id;
+    state.lyrics.loading = false;
+    state.lyrics.activeLineIdx = -1;
+    if (state.viewTab === 'lyrics') {
+      renderLyricsView();
+      updateLyricsSyncPosition(true);
+    }
+  } catch (err) {
+    if (token !== lyricsLoadToken) return;
+    state.lyrics.loading = false;
+    state.lyrics.data = {
+      trackKey: track.id,
+      found: false,
+      synced: false,
+      sourceLabel: err?.message || 'Sözler alınamadı',
+      lines: [],
+      plainLines: [],
+      offsetMs: 0
+    };
+    if (state.viewTab === 'lyrics') renderLyricsView();
+  }
+}
+
+function renderLyricsSearchResults() {
+  if (!els.lyricsSearchResults) return;
+  els.lyricsSearchResults.innerHTML = '';
+  const items = state.lyrics.searchResults || [];
+  if (items.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'body-muted';
+    empty.textContent = 'Henüz arama sonucu yok.';
+    els.lyricsSearchResults.appendChild(empty);
+    return;
+  }
+
+  for (const cand of items) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lyrics-cand-btn';
+
+    const left = document.createElement('div');
+    const titleEl = document.createElement('strong');
+    titleEl.textContent = `${cand.title} — ${cand.artist}`;
+    const subEl = document.createElement('div');
+    subEl.className = 'body-muted';
+    subEl.style.fontSize = '12px';
+    subEl.textContent = [cand.album, cand.duration ? formatTime(cand.duration) : ''].filter(Boolean).join(' • ');
+    left.append(titleEl, subEl);
+
+    const badge = document.createElement('span');
+    badge.className = 'lyrics-source-badge';
+    badge.textContent = cand.hasSynced ? 'Senkron' : (cand.instrumental ? 'Enstrümantal' : 'Düz Metin');
+
+    btn.append(left, badge);
+    btn.addEventListener('click', async () => {
+      const track = state.currentTrackId ? getAnyTrackById(state.currentTrackId) : null;
+      const trackKey = state.lyrics.trackKey || track?.id || '';
+      if (!trackKey || !window.yusic?.selectLyricsCandidate) return;
+      const selected = await window.yusic.selectLyricsCandidate(trackKey, cand);
+      state.lyrics.data = selected;
+      state.lyrics.searchOpen = false;
+      state.lyrics.activeLineIdx = -1;
+      renderLyricsView();
+      updateLyricsSyncPosition(true);
+      showToast('Şarkı sözü seçimi kaydedildi.', 'success');
+    });
+    els.lyricsSearchResults.appendChild(btn);
+  }
+}
+
+function renderLyricsView() {
+  const track = state.currentTrackId ? getAnyTrackById(state.currentTrackId) : null;
+  const coverUrl = track ? coverUrlForTrack(track) : '';
+
+  if (els.lyricsBackdrop) {
+    els.lyricsBackdrop.style.backgroundImage = coverUrl ? `url("${coverUrl}")` : 'none';
+  }
+  if (els.lyricsMiniCover) {
+    els.lyricsMiniCover.innerHTML = '';
+    if (coverUrl) {
+      const img = document.createElement('img');
+      img.src = coverUrl;
+      img.alt = '';
+      els.lyricsMiniCover.appendChild(img);
+    } else {
+      els.lyricsMiniCover.textContent = '♪';
+    }
+  }
+
+  els.lyricsTrackTitle.textContent = track ? track.title : 'Şarkı seçilmedi';
+  els.lyricsTrackArtist.textContent = track ? track.artist : 'Sözleri görmek için bir şarkı çal';
+
+  const data = state.lyrics.data;
+  if (data?.sourceLabel) {
+    els.lyricsSourceBadge.hidden = false;
+    els.lyricsSourceBadge.textContent = data.sourceLabel;
+  } else {
+    els.lyricsSourceBadge.hidden = true;
+  }
+
+  const offsetMs = Number(data?.offsetMs || 0);
+  const offsetSec = offsetMs / 1000;
+  els.lyricsOffsetVal.textContent = `${offsetSec >= 0 ? '+' : ''}${offsetSec.toFixed(1)}s`;
+  els.btnLyricsOffsetReset.hidden = offsetMs === 0;
+  els.lyricsOffsetGroup.hidden = !data?.synced;
+
+  els.lyricsSearchPanel.hidden = !state.lyrics.searchOpen;
+  els.btnLyricsSearchToggle.setAttribute('aria-expanded', String(Boolean(state.lyrics.searchOpen)));
+  if (state.lyrics.searchOpen) {
+    if (!els.lyricsSearchInput.value && track) {
+      const cleaned = cleanTrackMetadataForLyrics(track);
+      els.lyricsSearchInput.value = cleaned.rawQuery || track.title || '';
+    }
+    renderLyricsSearchResults();
+  }
+
+  els.lyricsStage.innerHTML = '';
+  els.btnLyricsResync.hidden = true;
+
+  if (!track) {
+    els.lyricsStage.innerHTML = `<div class="lyrics-empty-state"><h2>Henüz çalan şarkı yok</h2><p>Yerel kütüphanenden veya Spotify sekmesinden bir şarkı başlattığında sözler burada senkron şekilde akacak.</p></div>`;
+    return;
+  }
+
+  if (state.lyrics.loading) {
+    els.lyricsStage.innerHTML = `<div class="lyrics-empty-state"><h2>Şarkı sözleri aranıyor...</h2><p>Yerel etiketler, .lrc dosyaları ve çevrimiçi senkron söz arşivi kontrol ediliyor.</p></div>`;
+    return;
+  }
+
+  if (!data || !data.found) {
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'lyrics-empty-state';
+    emptyDiv.innerHTML = `<h2>Bu parça için söz bulunamadı</h2><p>Yerel dosya adı farklıysa sağ üstten <strong>Farklı Söz Ara</strong> diyerek doğru şarkıyı seçebilir veya aynı klasöre aynı isimle bir <code>.lrc</code> dosyası koyabilirsin.</p>`;
+    const searchBtn = document.createElement('button');
+    searchBtn.type = 'button';
+    searchBtn.className = 'btn btn-primary btn-sm';
+    searchBtn.textContent = 'Elle Söz Ara';
+    searchBtn.addEventListener('click', () => {
+      state.lyrics.searchOpen = true;
+      renderLyricsView();
+      els.lyricsSearchInput.focus();
+    });
+    emptyDiv.appendChild(searchBtn);
+    els.lyricsStage.appendChild(emptyDiv);
+    return;
+  }
+
+  if (data.instrumental) {
+    els.lyricsStage.innerHTML = `<div class="lyrics-empty-state"><h2>Enstrümantal Parça ♪</h2><p>Bu şarkı söz içermeyen enstrümantal bir kayıt olarak işaretlenmiş.</p></div>`;
+    return;
+  }
+
+  if (data.synced && Array.isArray(data.lines) && data.lines.length > 0) {
+    data.lines.forEach((line, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lyrics-line is-upcoming';
+      btn.dataset.lineIdx = String(idx);
+      btn.textContent = line.text || '♪';
+      btn.title = `${formatTime(line.timeMs / 1000)} konumuna atla`;
+      btn.addEventListener('click', () => {
+        if (Number.isFinite(line.timeMs)) {
+          audio.currentTime = Math.max(0, line.timeMs / 1000);
+          state.lyrics.userScrolledUntil = 0;
+          els.btnLyricsResync.hidden = true;
+          updateLyricsSyncPosition(true);
+        }
+      });
+      els.lyricsStage.appendChild(btn);
+    });
+    updateLyricsSyncPosition(true);
+    kickLyricsSyncLoop();
+  } else {
+    for (const textLine of data.plainLines || []) {
+      const p = document.createElement('p');
+      p.className = 'lyrics-line lyrics-line--plain';
+      p.textContent = textLine;
+      els.lyricsStage.appendChild(p);
+    }
+  }
+}
+
+function updateLyricsSyncPosition(forceScroll = false) {
+  if (state.viewTab !== 'lyrics') return;
+  const data = state.lyrics.data;
+  if (!data?.synced || !Array.isArray(data.lines) || data.lines.length === 0) return;
+
+  const curMs = (Number(audio.currentTime) || 0) * 1000;
+  const nextIdx = findActiveLyricIndex(data.lines, curMs, Number(data.offsetMs || 0));
+  if (!forceScroll && nextIdx === state.lyrics.activeLineIdx) return;
+
+  state.lyrics.activeLineIdx = nextIdx;
+  const lineEls = els.lyricsStage.querySelectorAll('.lyrics-line');
+  lineEls.forEach((el, idx) => {
+    el.classList.toggle('is-active', idx === nextIdx);
+    el.classList.toggle('is-past', nextIdx >= 0 && idx < nextIdx);
+    el.classList.toggle('is-upcoming', nextIdx < 0 || idx > nextIdx);
+  });
+
+  const userScrolling = Date.now() < (state.lyrics.userScrolledUntil || 0);
+  if (nextIdx >= 0 && lineEls[nextIdx] && (!userScrolling || forceScroll)) {
+    const target = lineEls[nextIdx];
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const targetTop = target.offsetTop - els.lyricsStage.clientHeight * 0.42 + target.clientHeight * 0.5;
+    els.lyricsStage.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: reduced || forceScroll ? 'auto' : 'smooth'
+    });
+    els.btnLyricsResync.hidden = true;
+  }
+}
+
+function kickLyricsSyncLoop() {
+  if (lyricsRafId) return;
+  const tick = () => {
+    lyricsRafId = 0;
+    if (state.viewTab === 'lyrics' && !audio.paused && state.lyrics.data?.synced) {
+      updateLyricsSyncPosition(false);
+      lyricsRafId = requestAnimationFrame(tick);
+    }
+  };
+  if (state.viewTab === 'lyrics' && !audio.paused && state.lyrics.data?.synced) {
+    lyricsRafId = requestAnimationFrame(tick);
+  }
+}
+
+function toggleLyricsView(forceState = null) {
+  const open = forceState !== null ? Boolean(forceState) : state.viewTab !== 'lyrics';
+  if (open) {
+    if (state.viewTab !== 'lyrics') {
+      state.lyrics.prevViewTab = state.viewTab || 'library';
+    }
+    state.viewTab = 'lyrics';
+    const track = state.currentTrackId ? getAnyTrackById(state.currentTrackId) : null;
+    if (track && state.lyrics.trackId !== track.id && !state.lyrics.loading) {
+      loadLyricsForTrack(track);
+    }
+  } else {
+    state.viewTab = state.lyrics.prevViewTab || 'library';
+  }
+  renderMainView();
+  renderSidebar();
+}
+
 /* ---------------- Main Views Routing ---------------- */
 function renderMainView() {
   els.viewLibrary.hidden = state.viewTab !== 'library';
   els.viewSpotify.hidden = state.viewTab !== 'spotify';
   els.viewDownloader.hidden = state.viewTab !== 'downloader';
   els.viewSettings.hidden = state.viewTab !== 'settings';
+  if (els.viewLyrics) els.viewLyrics.hidden = state.viewTab !== 'lyrics';
+  if (els.btnLyricsToggle) {
+    els.btnLyricsToggle.setAttribute('aria-pressed', String(state.viewTab === 'lyrics'));
+  }
+
+  if (state.viewTab === 'lyrics') {
+    renderLyricsView();
+    return;
+  }
 
   if (state.viewTab === 'downloader') {
     renderDownloaderJobs();
@@ -3616,7 +3937,7 @@ function renderDownloaderJobs() {
 /* ---------------- Auto-Updater Banner & Modal ---------------- */
 function renderUpdateState() {
   const u = state.updateState;
-  const verStr = u?.currentVersion || state.appVersion || '1.0.3';
+  const verStr = u?.currentVersion || state.appVersion || '1.0.4';
   els.appVersionLabel.textContent = `Yusic v${verStr}`;
   els.updateCurVer.textContent = `v${verStr}`;
   els.settingsCurVer.textContent = `v${verStr}`;
@@ -3645,34 +3966,34 @@ function renderUpdateState() {
     els.updateBannerBadge.textContent = `v${u.latestVersion}`;
     els.updateBannerTitle.textContent = `Yeni Yusic sürümü mevcut (v${u.latestVersion})`;
     els.updateBannerSub.textContent = u.isPackaged
-      ? 'Uygulama içinden indirip otomatik güncelleyebilirsiniz.'
+      ? 'Tek tıkla indirip otomatik sessizce kurabilirsiniz.'
       : 'Kurulum dosyasını GitHub üzerinden indirebilirsiniz.';
     els.updateBannerProgress.hidden = true;
     els.btnBannerAction.hidden = false;
-    els.btnBannerAction.textContent = u.isPackaged ? 'Güncellemeyi İndir' : 'Setup İndir';
+    els.btnBannerAction.textContent = u.isPackaged ? 'Otomatik Güncelle' : 'Setup İndir';
   } else if (effectiveStatus === 'downloading' && isReallyNewer) {
     els.updateBannerBadge.textContent = `%${pct}`;
-    els.updateBannerTitle.textContent = `Güncelleme indiriliyor (v${u.latestVersion || ''})...`;
-    els.updateBannerSub.textContent = 'İndirme bitince tek tıkla kurulabilir.';
+    els.updateBannerTitle.textContent = `Güncelleme indiriliyor ve kurulacak (v${u.latestVersion || ''})...`;
+    els.updateBannerSub.textContent = 'Tamamlanınca otomatik kurulup yeniden başlatılacak.';
     els.updateBannerProgress.hidden = false;
     els.updateBannerProgress.value = pct;
     els.btnBannerAction.hidden = true;
   } else if (effectiveStatus === 'downloaded' && isReallyNewer) {
     els.updateBannerBadge.textContent = 'Hazır';
     els.updateBannerTitle.textContent = `Yusic v${u.latestVersion || ''} kuruluma hazır`;
-    els.updateBannerSub.textContent = 'Yeniden başlatarak hemen güncelleyebilirsiniz.';
+    els.updateBannerSub.textContent = 'Otomatik kurulum başlatılıyor...';
     els.updateBannerProgress.hidden = true;
     els.btnBannerAction.hidden = false;
-    els.btnBannerAction.textContent = 'Şimdi Güncelle ve Yeniden Başlat';
+    els.btnBannerAction.textContent = 'Şimdi Kur ve Yeniden Başlat';
   }
 
   const statusMessages = {
     idle: 'GitHub Releases üzerinden yeni sürüm kontrolü yapabilirsiniz.',
     checking: 'GitHub Releases kontrol ediliyor...',
-    available: `Yeni sürüm bulundu: v${u.latestVersion}. Hemen indirebilirsiniz.`,
+    available: `Yeni sürüm bulundu: v${u.latestVersion}. Tek tıkla otomatik güncelleyebilirsiniz.`,
     'not-available': 'Tebrikler! En güncel Yusic sürümünü kullanıyorsunuz.',
-    downloading: `Güncelleme paketi indiriliyor... (%${pct})`,
-    downloaded: `v${u.latestVersion || ''} indirildi! Kurulumu tamamlamak için uygulamayı yeniden başlatın.`,
+    downloading: `Güncelleme paketi indiriliyor... (%${pct}) — bitince otomatik kurulacak`,
+    downloaded: `v${u.latestVersion || ''} indirildi! Kurulum başlatılıyor...`,
     error: `Güncelleme hatası: ${u.error || 'Bağlantı sağlanamadı.'}`
   };
   const msg = statusMessages[effectiveStatus] || statusMessages.idle;
@@ -3703,10 +4024,10 @@ function renderUpdateState() {
 
   if (effectiveStatus === 'available' && isReallyNewer) {
     els.btnUpdateAction.hidden = false;
-    els.btnUpdateAction.textContent = u.isPackaged ? 'Güncellemeyi İndir' : "GitHub'dan İndir";
+    els.btnUpdateAction.textContent = u.isPackaged ? 'Otomatik Güncelle' : "GitHub'dan İndir";
   } else if (effectiveStatus === 'downloaded' && isReallyNewer) {
     els.btnUpdateAction.hidden = false;
-    els.btnUpdateAction.textContent = 'Şimdi Güncelle ve Yeniden Başlat';
+    els.btnUpdateAction.textContent = 'Şimdi Kur ve Yeniden Başlat';
   } else {
     els.btnUpdateAction.hidden = true;
   }
@@ -3714,14 +4035,16 @@ function renderUpdateState() {
 
 async function triggerUpdateAction() {
   const u = state.updateState;
-  const curVer = u?.currentVersion || state.appVersion || '1.0.3';
+  const curVer = u?.currentVersion || state.appVersion || '1.0.4';
   if (!u || !u.latestVersion || compareSemver(u.latestVersion, curVer) <= 0) {
     return;
   }
   if (u.status === 'available') {
-    const res = await window.yusic.downloadUpdate();
+    const res = await window.yusic.downloadUpdate({ autoInstall: Boolean(u.isPackaged) });
     if (res?.openedExternal) {
       showToast('Kurulum dosyası tarayıcıda açıldı.', 'info');
+    } else if (res?.started) {
+      showToast('Güncelleme indiriliyor; tamamlanınca otomatik kurulup yeniden başlatılacak.', 'info');
     }
   } else if (u.status === 'downloaded') {
     await window.yusic.installUpdate();
@@ -4313,6 +4636,62 @@ function bindEvents() {
     renderAll();
   });
 
+  // Synchronized Lyrics View Controls
+  els.btnLyricsToggle?.addEventListener('click', () => toggleLyricsView());
+  els.btnLyricsClose?.addEventListener('click', () => toggleLyricsView(false));
+  els.btnLyricsRefresh?.addEventListener('click', () => {
+    const track = state.currentTrackId ? getAnyTrackById(state.currentTrackId) : null;
+    if (track) loadLyricsForTrack(track, true);
+  });
+
+  const adjustLyricsOffset = async (nextOffsetMs) => {
+    const trackKey = state.lyrics.trackKey || state.lyrics.data?.trackKey;
+    if (!trackKey || !window.yusic?.setLyricsOffset) return;
+    const saved = await window.yusic.setLyricsOffset(trackKey, nextOffsetMs);
+    if (state.lyrics.data) state.lyrics.data.offsetMs = saved;
+    renderLyricsView();
+    updateLyricsSyncPosition(true);
+  };
+  els.btnLyricsOffsetMinus?.addEventListener('click', () => {
+    adjustLyricsOffset(Number(state.lyrics.data?.offsetMs || 0) - 500);
+  });
+  els.btnLyricsOffsetPlus?.addEventListener('click', () => {
+    adjustLyricsOffset(Number(state.lyrics.data?.offsetMs || 0) + 500);
+  });
+  els.btnLyricsOffsetReset?.addEventListener('click', () => adjustLyricsOffset(0));
+
+  els.btnLyricsSearchToggle?.addEventListener('click', () => {
+    state.lyrics.searchOpen = !state.lyrics.searchOpen;
+    renderLyricsView();
+    if (state.lyrics.searchOpen) els.lyricsSearchInput?.focus();
+  });
+
+  els.lyricsSearchForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = els.lyricsSearchInput.value.trim();
+    if (!q || !window.yusic?.searchLyrics) return;
+    els.lyricsSearchResults.innerHTML = '<p class="body-muted">Aranıyor...</p>';
+    try {
+      state.lyrics.searchResults = await window.yusic.searchLyrics(q);
+      renderLyricsSearchResults();
+    } catch (err) {
+      els.lyricsSearchResults.innerHTML = `<p class="body-muted">Arama hatası: ${err?.message || 'Hata'}</p>`;
+    }
+  });
+
+  els.lyricsStage?.addEventListener('wheel', () => {
+    if (state.lyrics.data?.synced) {
+      state.lyrics.userScrolledUntil = Date.now() + 4500;
+      els.btnLyricsResync.hidden = false;
+    }
+  }, { passive: true });
+
+  els.btnLyricsResync?.addEventListener('click', () => {
+    state.lyrics.userScrolledUntil = 0;
+    els.btnLyricsResync.hidden = true;
+    updateLyricsSyncPosition(true);
+  });
+
   // Settings Spotify & Folder & Updates Controls
   els.btnSettingsSpSave.addEventListener('click', async () => {
     const id = els.settingsSpClientId.value.trim();
@@ -4535,12 +4914,14 @@ function bindEvents() {
     els.seekSlider.value = String(cur);
     els.timeCurrent.textContent = formatTime(cur);
     syncSliderVisual(els.seekSlider, formatTime(cur));
+    updateLyricsSyncPosition(false);
   });
 
   audio.addEventListener('play', () => {
     applySpeedAndPitch();
     applyTransportState();
     kickVisualizer();
+    kickLyricsSyncLoop();
   });
 
   audio.addEventListener('pause', () => {
@@ -4692,6 +5073,8 @@ function bindEvents() {
       toggleShuffle();
     } else if (e.key === 'r' || e.key === 'R') {
       cycleRepeatMode();
+    } else if (e.key === 'l' || e.key === 'L') {
+      toggleLyricsView();
     }
   });
 

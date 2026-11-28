@@ -93,6 +93,15 @@ contextBridge.exposeInMainWorld('yusic', {
   openPublicSpotifyLink: (url) => ipcRenderer.invoke('yusic:spotify:openPublicLink', url),
   prefetchSpotifyTrack: (track) => ipcRenderer.invoke('yusic:spotify:prefetch', track),
 
+  // Lyrics
+  getLyrics: (track, forceRefresh = false) =>
+    ipcRenderer.invoke('yusic:lyrics:get', { track, forceRefresh }),
+  searchLyrics: (query) => ipcRenderer.invoke('yusic:lyrics:search', query),
+  selectLyricsCandidate: (trackKey, candidate) =>
+    ipcRenderer.invoke('yusic:lyrics:select', { trackKey, candidate }),
+  setLyricsOffset: (trackKey, offsetMs) =>
+    ipcRenderer.invoke('yusic:lyrics:setOffset', { trackKey, offsetMs }),
+
   // Downloads
   detectUrl: (url) => ipcRenderer.invoke('yusic:downloads:detect', url),
   startDownload: (url, options) => ipcRenderer.invoke('yusic:downloads:start', { url, options }),
@@ -103,7 +112,7 @@ contextBridge.exposeInMainWorld('yusic', {
   // Updates
   getUpdateState: () => ipcRenderer.invoke('yusic:updater:getState'),
   checkForUpdates: () => ipcRenderer.invoke('yusic:updater:check'),
-  downloadUpdate: () => ipcRenderer.invoke('yusic:updater:download'),
+  downloadUpdate: (opts) => ipcRenderer.invoke('yusic:updater:download', opts),
   installUpdate: () => ipcRenderer.invoke('yusic:updater:install'),
   openReleasePage: () => ipcRenderer.invoke('yusic:updater:openReleasePage'),
 

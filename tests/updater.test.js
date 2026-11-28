@@ -149,7 +149,41 @@ test('UpdateManager handles full packaged autoUpdater lifecycle', async () => {
 
   const res = mgr.installUpdate();
   assert.equal(res.ok, true);
-  assert.deepEqual(fakeAu.quitArgs, { isSilent: false, isForceRunAfter: true });
+  assert.deepEqual(fakeAu.quitArgs, { isSilent: true, isForceRunAfter: true });
+});
+
+test('UpdateManager automatically triggers silent quitAndInstall when downloadUpdate({ autoInstall: true }) finishes', async () => {
+  class AutoInstallUpdater extends EventEmitter {
+    constructor() {
+      super();
+      this.quitArgs = null;
+    }
+    setFeedURL() {}
+    async checkForUpdates() {
+      this.emit('checking-for-update');
+      this.emit('update-available', { version: '1.0.5', releaseName: 'Yusic v1.0.5' });
+    }
+    async downloadUpdate() {
+      this.emit('update-downloaded', { version: '1.0.5', releaseNotes: 'Sessiz kurulum' });
+    }
+    quitAndInstall(isSilent, isForceRunAfter) {
+      this.quitArgs = { isSilent, isForceRunAfter };
+    }
+  }
+
+  const fakeAu = new AutoInstallUpdater();
+  const mgr = new UpdateManager({
+    currentVersion: '1.0.4',
+    isPackaged: true,
+    autoUpdaterImpl: fakeAu,
+    autoInstallDelayMs: 0
+  });
+
+  await mgr.checkForUpdates();
+  const dl = await mgr.downloadUpdate({ autoInstall: true });
+  assert.equal(dl.started, true);
+  assert.equal(dl.autoInstall, true);
+  assert.deepEqual(fakeAu.quitArgs, { isSilent: true, isForceRunAfter: true });
 });
 
 test('initRuntimePaths separates packaged user data/music safely and restores dev paths', (t) => {

@@ -10,6 +10,7 @@ export const MUZIK_DIR = path.join(ROOT_DIR, 'muzik');
 export const DATA_DIR = path.join(ROOT_DIR, 'data');
 export const COVERS_DIR = path.join(DATA_DIR, 'covers');
 export const TMP_DIR = path.join(DATA_DIR, 'tmp');
+export const LYRICS_CACHE_DIR = path.join(DATA_DIR, 'lyrics-cache');
 export const DB_PATH = path.join(DATA_DIR, 'yusic-db.json');
 export const ICON_PATH = path.join(ROOT_DIR, 'assets', 'icon.png');
 
@@ -21,6 +22,7 @@ const runtime = {
   dataDir: DATA_DIR,
   coversDir: COVERS_DIR,
   tmpDir: TMP_DIR,
+  lyricsCacheDir: LYRICS_CACHE_DIR,
   dbPath: DB_PATH,
   iconPath: ICON_PATH,
   bundledBinDir: path.join(ROOT_DIR, 'build-bin')
@@ -50,6 +52,7 @@ export function initRuntimePaths({
 
   runtime.coversDir = path.join(runtime.dataDir, 'covers');
   runtime.tmpDir = path.join(runtime.dataDir, 'tmp');
+  runtime.lyricsCacheDir = path.join(runtime.dataDir, 'lyrics-cache');
   runtime.dbPath = path.join(runtime.dataDir, 'yusic-db.json');
   return getRuntimePaths();
 }
@@ -59,7 +62,13 @@ export function getRuntimePaths() {
 }
 
 export function ensureAppDirs() {
-  for (const dir of [runtime.muzikDir, runtime.dataDir, runtime.coversDir, runtime.tmpDir]) {
+  for (const dir of [
+    runtime.muzikDir,
+    runtime.dataDir,
+    runtime.coversDir,
+    runtime.tmpDir,
+    runtime.lyricsCacheDir
+  ]) {
     fs.mkdirSync(dir, { recursive: true });
   }
 }

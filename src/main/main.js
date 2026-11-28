@@ -16,6 +16,7 @@ import { StreamServer } from './streamServer.js';
 import { DownloadManager } from './downloader.js';
 import { detectMediaUrl } from './spotifyResolver.js';
 import { SpotifyAccountManager } from './spotifyAccount.js';
+import { LyricsService } from './lyricsService.js';
 import { UpdateManager } from './updater.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,7 @@ let library = null;
 let streamServer = null;
 let downloader = null;
 let spotifyAccount = null;
+let lyricsService = null;
 let updater = null;
 let serverInfo = null;
 let toolsStatus = null;
@@ -98,6 +100,10 @@ async function initBackend() {
   spotifyAccount = new SpotifyAccountManager({
     store,
     openExternalFn: (url) => shell.openExternal(url)
+  });
+
+  lyricsService = new LyricsService({
+    cacheDir: paths.lyricsCacheDir
   });
 
   updater = new UpdateManager({
@@ -344,6 +350,20 @@ function registerIpc() {
     return true;
   });
 
+  // Lyrics
+  ipcMain.handle('yusic:lyrics:get', (_event, { track, forceRefresh = false } = {}) =>
+    lyricsService.getLyricsForTrack(track, { forceRefresh })
+  );
+  ipcMain.handle('yusic:lyrics:search', (_event, query) =>
+    lyricsService.searchLyricsCandidates(query)
+  );
+  ipcMain.handle('yusic:lyrics:select', (_event, { trackKey, candidate } = {}) =>
+    lyricsService.selectCandidateForTrack(trackKey, candidate)
+  );
+  ipcMain.handle('yusic:lyrics:setOffset', (_event, { trackKey, offsetMs } = {}) =>
+    lyricsService.setTrackOffset(trackKey, offsetMs)
+  );
+
   // Downloads
   ipcMain.handle('yusic:downloads:detect', (_event, url) => detectMediaUrl(url));
   ipcMain.handle('yusic:downloads:start', (_event, { url, options }) => downloader.enqueue(url, options));
@@ -354,7 +374,7 @@ function registerIpc() {
   // Updater IPC
   ipcMain.handle('yusic:updater:getState', () => updater.getState());
   ipcMain.handle('yusic:updater:check', () => updater.checkForUpdates());
-  ipcMain.handle('yusic:updater:download', () => updater.downloadUpdate());
+  ipcMain.handle('yusic:updater:download', (_event, opts) => updater.downloadUpdate(opts));
   ipcMain.handle('yusic:updater:install', () => updater.installUpdate());
   ipcMain.handle('yusic:updater:openReleasePage', () => updater.openReleasePage());
 }
@@ -510,6 +530,13 @@ async function runSmokeTest() {
         scaleSlider.dispatchEvent(new Event('input', { bubbles: true }));
         document.getElementById('nav-local').click();
 
+        const lyricsToggleBtn = document.getElementById('btn-lyrics-toggle');
+        const lyricsViewEl = document.getElementById('view-lyrics');
+        lyricsToggleBtn.click();
+        const lyricsViewOpened = Boolean(lyricsViewEl && !lyricsViewEl.hidden);
+        document.getElementById('btn-lyrics-close').click();
+        const lyricsViewClosed = Boolean(lyricsViewEl && lyricsViewEl.hidden);
+
         const resizerHandlesPresent = Boolean(
           document.getElementById('resizer-sidebar') &&
           document.getElementById('resizer-sidebar-split') &&
@@ -564,6 +591,8 @@ async function runSmokeTest() {
           eqBandsCount,
           zoomApplied,
           resizerHandlesPresent,
+          lyricsViewOpened,
+          lyricsViewClosed,
           spotifyFullControlsPresent,
           dialogOpened,
           dialogClosed,
@@ -596,9 +625,11 @@ async function runSmokeTest() {
       uiCheck.eqBandsCount !== 10 ||
       Math.abs(uiCheck.zoomApplied - 1.15) > 0.02 ||
       !uiCheck.resizerHandlesPresent ||
+      !uiCheck.lyricsViewOpened ||
+      !uiCheck.lyricsViewClosed ||
       !uiCheck.spotifyFullControlsPresent
     ) {
-      throw new Error(`v1.0.3 UI check failed: ${JSON.stringify(uiCheck)}`);
+      throw new Error(`v1.0.4 UI check failed: ${JSON.stringify(uiCheck)}`);
     }
     const nextRepeat = { off: 'all', all: 'one', one: 'off' };
     const [r0, r1, r2, r3] = uiCheck.repeatCycle || [];

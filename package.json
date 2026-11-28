@@ -1,6 +1,6 @@
 {
   "name": "yusic",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Yusic - Masaüstü Müzik Çalar ve İndirici",
   "type": "module",
   "main": "src/main/main.js",
@@ -54,9 +54,8 @@
       "artifactName": "Yusic-Setup-${version}.${ext}"
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Yusic",

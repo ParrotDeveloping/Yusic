@@ -19,15 +19,18 @@ export class UpdateManager extends EventEmitter {
     isPackaged = false,
     openExternalFn = null,
     autoUpdaterImpl = null,
+    autoInstallDelayMs = 300,
     fetchImpl = fetch
   } = {}) {
     super();
     this.isPackaged = Boolean(isPackaged);
     this.openExternalFn = openExternalFn;
     this.autoUpdaterImpl = autoUpdaterImpl;
+    this.autoInstallDelayMs = Math.max(0, Number(autoInstallDelayMs) || 0);
     this.fetchImpl = fetchImpl;
     this._au = null;
     this._auWired = false;
+    this._autoInstallOnDownload = false;
 
     this.state = {
       currentVersion: normalizeVersion(currentVersion) || '1.0.1',
@@ -156,6 +159,16 @@ export class UpdateManager extends EventEmitter {
         progress: 100,
         error: null
       });
+      if (this._autoInstallOnDownload && this.isPackaged) {
+        this._autoInstallOnDownload = false;
+        if (this.autoInstallDelayMs <= 0) {
+          this.installUpdate();
+        } else {
+          setTimeout(() => {
+            this.installUpdate();
+          }, this.autoInstallDelayMs);
+        }
+      }
     });
 
     au.on('error', (err) => {
@@ -263,11 +276,15 @@ export class UpdateManager extends EventEmitter {
     }
   }
 
-  async downloadUpdate() {
+  async downloadUpdate({ autoInstall = false } = {}) {
     if (this.state.status === 'downloaded') {
+      if (autoInstall && this.isPackaged) {
+        return { alreadyDownloaded: true, installed: this.installUpdate(), state: this.getState() };
+      }
       return { alreadyDownloaded: true, state: this.getState() };
     }
     if (this.state.status === 'downloading') {
+      if (autoInstall) this._autoInstallOnDownload = true;
       return { alreadyDownloading: true, state: this.getState() };
     }
     if (
@@ -285,12 +302,15 @@ export class UpdateManager extends EventEmitter {
       return { openedExternal: true, url: target, state: this.getState() };
     }
 
+    const wantAutoInstall = Boolean(autoInstall);
+    this._autoInstallOnDownload = wantAutoInstall;
     this._patchState({ status: 'downloading', progress: 0, error: null });
     try {
       const au = await this._ensureAutoUpdater();
       await au.downloadUpdate();
-      return { started: true, state: this.getState() };
+      return { started: true, autoInstall: wantAutoInstall, state: this.getState() };
     } catch (err) {
+      this._autoInstallOnDownload = false;
       this._patchState({
         status: 'error',
         error: err?.message || 'Güncelleme indirilemedi.'
@@ -306,7 +326,7 @@ export class UpdateManager extends EventEmitter {
     if (this.state.status !== 'downloaded') {
       return { ok: false, reason: 'not-downloaded' };
     }
-    this._au.quitAndInstall(false, true);
+    this._au.quitAndInstall(true, true);
     return { ok: true };
   }
 
